@@ -1,0 +1,34 @@
+# Experiment
+experiment_name: debug
+
+# Data from preprocessing
+data_dir: "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/train_data"
+
+# Network to be used by the CM [unet]
+network: unet
+
+# Distance [l1, l2]
+distance: l1
+
+# Optimizer
+optimizer: radam
+
+# Hyperparameters (close to Song et al. 2023 for LSUN 256x256)
+learning_rate: 1e-5
+batch_size: 1
+tmin: 0.002 # minimum noise (for stability)
+tmax: 80 # maximum noise
+mu0: 0.9 # EMA decay rating at the beginning of training
+s0: 2 # initial discretization steps
+s1: 200 # target discretization steps
+N: 120 # discretization steps (can be a "schedule")
+mu: 0.99 # EMA decay rating (can be a "schedule")
+training_iterations: 1000 # K
+EMA_decay_rate: 0.9999 # EMA decay rating for the online network
+
+sigma_data: 0.5 # standard deviation of the dataset after normalization
+sigma_star: 2e-1 # standard deviation of the noise added to the data at inference time
+
+# Logging and checkpointing
+log_each: 100
+checkpoint_each: 500

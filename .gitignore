@@ -1,0 +1,7 @@
+dev/
+experiments/
+figs/
+__pycache__/
+.vscode/
+src/s2s_downscaling.egg-info
+todo
