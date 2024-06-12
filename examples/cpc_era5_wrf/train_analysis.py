@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from models.consistency_model import ConsistencyModel
 from training.experiment import Experiment
 from training.checkpointing import Checkpointer
-from evaluation.plots import plot_4maps
+from evaluation.plots import plot_maps
 from utils import *
 
 
@@ -24,7 +24,7 @@ def plot_trainig_curve(figs_dir, df):
 
 def main():
     # Experiment folder and name
-    experiment_name = "debug"
+    experiment_name = "diffusers_drop04"
     script_dir = os.path.dirname(os.path.realpath(__file__))
     experiment_dir = os.path.join(script_dir, "experiments", experiment_name)
     
@@ -43,7 +43,7 @@ def main():
     sigma_star = 2 # experiment.sigma_star
     cm = ConsistencyModel(sigma_data, tmin, net)
     
-    # ... and the checkpoints!
+    # ... and the checkpoints
     ckpter = Checkpointer(experiment_dir)
     latest_step = ckpter.manager.latest_step()
     restored = ckpter.manager.restore(latest_step)
@@ -68,27 +68,27 @@ def main():
     # Add noise
     x = input_data[[0],:Ny,:Nx,:]
     t_star = jnp.array([sigma_star])
-    z = jax.random.normal(jax.random.PRNGKey(42), (1, Ny, Nx, 1))
-    x_sample = batch_add(x, batch_mul(t_star, z))
+    z = jax.random.normal(jax.random.PRNGKey(37), (1, Ny, Nx, 1))
+    x_noised = x + batch_mul(t_star, z)
     
     # Output time
-    output_data = cm.apply(params, x_sample, t_star)
+    output_data = cm.apply(params, x_noised, t_star)
     
     # Restore normalizations
     input_img = unlog_transform(
-            unnormalize_data(
-                x_sample, 
-                input_data_mean, 
-                input_data_std, 
-                sigma_data
-            )
-        ).__array__()
+        unnormalize_data(
+            x_noised,
+            input_data_mean,
+            input_data_std,
+            sigma_data,
+        )
+    ).__array__()
     output_img = unlog_transform(
         unnormalize_data(
-            output_data, 
-            input_data_mean, 
-            input_data_std, 
-            sigma_data
+            output_data,
+            input_data_mean,
+            input_data_std,
+            sigma_data,
         )
     ).__array__()
     
@@ -100,38 +100,32 @@ def main():
     # Extents
     raw_era5_lons = raw_era5_ds.longitude.values
     raw_era5_lats = raw_era5_ds.latitude.values
-    raw_era5_extent = [
+    raw_era5_extent = (
         np.min(raw_era5_lons[:Nx]),
         np.max(raw_era5_lons[:Nx]),
         np.min(raw_era5_lats[:Ny]),
-        np.max(raw_era5_lats[:Ny])
-    ]
+        np.max(raw_era5_lats[:Ny]),
+    )
     era5_lons = era5_ds.longitude.values
     era5_lats = era5_ds.latitude.values
-    extent = [
-        np.min(era5_lons[:Nx]), 
-        np.max(era5_lons[:Nx]), 
-        np.min(era5_lats[:Ny]), 
-        np.max(era5_lats[:Ny])
-    ]
+    extent = (
+        np.min(era5_lons[:Nx]),
+        np.max(era5_lons[:Nx]),
+        np.min(era5_lats[:Ny]),
+        np.max(era5_lats[:Ny]),
+    )
     
     # Check plot
-    plot_4maps(
-        top_left_data=raw_era5_ds.tp.values[time,Ny::-1,:Nx]*1000, # latitude is reversed
-        title_top_left="ERA5",
-        top_left_extent=raw_era5_extent,
-        top_right_data=input_img[0,:,:,0],
-        title_top_right="input",
-        top_right_extent=extent,
-        bottom_left_data=output_img[0,:,:,0],
-        title_bottom_left="CM",
-        bottom_left_extent=extent,
-        bottom_right_data=cpc_data[time,:Ny,:Nx],
-        title_bottom_right="CPC",
-        bottom_right_extent=extent,
-        figs_dir=figs_dir,
-        filename="check.png".format(time, sigma_star)
+    arrays = (
+        raw_era5_ds.tp.values[time,Ny::-1,:Nx]*1000,
+        input_img[0,:,:,0],
+        output_img[0,:,:,0],
+        cpc_data[time,:Ny,:Nx],
     )
+    titles = ("ERA5", "input", "CM", "CPC")
+    extents = (raw_era5_extent, extent, extent, extent)
+    fig, _ = plot_maps(arrays, titles, extents, vmax=15)
+    fig.savefig(os.path.join(figs_dir, "training_maps.png"))
     
     print("Done!")
     

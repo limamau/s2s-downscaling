@@ -8,13 +8,6 @@ from math import radians, sin, cos, sqrt, atan2
 
 # Utils function in alfabetical order
 
-def batch_add(a, b):
-    """
-    Sum for each batch.
-    """
-    return jax.vmap(lambda a, b: a + b)(a, b)
-
-
 def batch_mul(a, b):
     """
     Multiply for each batch.
@@ -98,8 +91,8 @@ def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
     Finds the intersection point of two curves (era5_psd and cpc_psd) based on the given wavelengths.
     """
     # Find the differences between the two curves
-    y1 = np.log(era5_psd + 10e-20)[1:] # there's a problem with the first value?
-    y2 = np.log(cpc_psd + 10e-20)[1:]
+    y1 = np.log(era5_psd + 10e-15)[1:] # there's a problem with the first value?
+    y2 = np.log(cpc_psd + 10e-15)[1:]
     diff = y2 - y1
 
     # Find the index of the minimum absolute difference (closest to zero)
@@ -165,7 +158,6 @@ def haversine(lon1, lat1, lon2, lat2):
 def log_transform(data, epsilon=0.00001):
     """
     Applies a log transformation to the input data using the formula x̃ = log(x + ϵ) − log(ϵ).
-def log_transform(data, epsilon=0.005):
     """
     return jnp.log(data + epsilon) - jnp.log(epsilon)
 

@@ -12,16 +12,13 @@ class ConsistencyModel():
         self.F = F
         
     
-    @partial(jax.jit, static_argnums=0)
-    def _cskip(self, t):
+    def _c_skip(self, t):
         return self.sigma_data**2 / (self.sigma_data**2 + (t-self.tmin)**2)
 
 
-    @partial(jax.jit, static_argnums=0)
-    def _cout(self, t):
+    def _c_out(self, t):
         return self.sigma_data*(t-self.tmin) / jnp.sqrt(self.sigma_data**2 + t**2)
     
     
-    @partial(jax.jit, static_argnums=0)
-    def apply(self, params, x, t,):
-        return batch_mul(self._cskip(t), x) + batch_mul(self._cout(t), self.F.apply(params, x))
+    def apply(self, params, x, t, is_training=False, rngs=None):
+        return batch_mul(self._c_skip(t), x) + batch_mul(self._c_out(t), self.F.apply(params, x, t, is_training=is_training, rngs=rngs))

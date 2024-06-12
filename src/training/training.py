@@ -6,13 +6,13 @@ import jax.numpy as jnp
 from functools import partial
 
 from .losses import consistency_loss
-from utils import batch_add, batch_mul, create_folder, log_transform, normalize_data
+from utils import batch_mul, create_folder, log_transform, normalize_data
 from .writing import Writer
 from .checkpointing import Checkpointer
 from models.consistency_model import ConsistencyModel
 
 
-@partial(jax.jit, static_argnums=(0,1,2,3,4,5))
+@partial(jax.jit, static_argnums=(0,1,2,3,4,5,))
 def train_step(
     cm, # static
     d, # static
@@ -20,6 +20,7 @@ def train_step(
     N, # static
     mu, # static
     tn, # static
+    dropout_rng,
     online_params,
     target_params,
     opt_state,
@@ -30,9 +31,9 @@ def train_step(
 ):
     # Get times (noises) and noised images
     t_online = tn(n+1, N(k))
-    x_online = batch_add(x, batch_mul(t_online, z))
+    x_online = x + batch_mul(t_online, z)
     t_target = tn(n, N(k))
-    x_target = batch_add(x, batch_mul(t_target, z))
+    x_target = x + batch_mul(t_target, z)
     
     # Get loss and gradients (with respect to online_params)
     loss, grads = jax.value_and_grad(consistency_loss, argnums=0)(
@@ -42,6 +43,8 @@ def train_step(
         cm,
         x_online, t_online,
         x_target, t_target,
+        rngs={'dropout': dropout_rng},
+        is_training=True,
     )
     
     # Update parameters and optimizer state
@@ -86,8 +89,9 @@ def train(experiment):
     
     # Adjust dimensions
     Nt, Ny, Nx = experiment.data.shape
-    Ny -= Ny % 16
-    Nx -= Nx % 16
+    num_blocks = 4 # FIXME: hard coded
+    Ny -= Ny % 2**num_blocks
+    Nx -= Nx % 2**num_blocks
     data = experiment.data[:Nt, :Ny, :Nx]
     data = jnp.expand_dims(data, axis=(3,))
     
@@ -96,11 +100,21 @@ def train(experiment):
     data, data_mean, data_std = normalize_data(data, sigma_data)
     writer.save_normalizations(data.shape, data_mean, data_std)
     
+    # PRNG for initialisation
+    rng = jax.random.PRNGKey(42)
+    params_rng, dropout_rng = jax.random.split(rng)
+    
+    rngs = {"params": params_rng, "dropout": dropout_rng}
     # Initialisations
     cm = ConsistencyModel(sigma_data, tmin, net)
-    online_params = net.init(jax.random.PRNGKey(42), jnp.ones((batch_size, Ny, Nx, 1)))
+    online_params = net.init(
+        rngs,
+        jnp.ones((1, Ny, Nx, 1)), 
+        jnp.ones((1,)),
+    )
     target_params = online_params
     opt_state = opt.init(target_params)
+    writer.log_params(online_params)
     
     # PRNG for sampling
     rng = jax.random.PRNGKey(37)
@@ -114,9 +128,9 @@ def train(experiment):
     for k in range(0, K+1, batch_size):
         # Samples
         start_time = time.time()
-        rng, x_rng, n_rng, z_rng = jax.random.split(rng, 4)
+        rng, x_rng, n_rng, z_rng, dropout_rng = jax.random.split(rng, 5)
         idx = jax.random.randint(x_rng, (batch_size,), 0, Nt)
-        x = data[idx, :,:,:]
+        x = data[idx,:,:,:]
         n = jax.random.randint(n_rng, (batch_size,), 1, N(k)+1)
         z = jax.random.normal(z_rng, (batch_size, Ny, Nx, 1))
         timer_samples += time.time() - start_time
@@ -130,6 +144,7 @@ def train(experiment):
             N,
             mu,
             tn,
+            dropout_rng,
             online_params,
             target_params,
             opt_state,
@@ -145,14 +160,14 @@ def train(experiment):
         if k == 0:
             continue
         if k % log_each == 0:
-            writer.log_loss(k, loss)
+            writer.log_loss(k, loss, n)
         if k % ckpt_each == 0:
             ckpter.save(k, target_params, opt_state)
         timer_log_ckpt += time.time() - start_time
             
     # Save last if it wasn't already
     if K % ckpt_each != 0:
-        writer.log_loss(K, loss)
+        writer.log_loss(K, loss, n)
         ckpter.save(K, target_params, opt_state)
 
     # I intend to take the time control out in the future

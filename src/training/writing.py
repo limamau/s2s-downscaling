@@ -3,6 +3,7 @@ import csv
 import logging
 import yaml
 from jax import devices
+from jax import tree_util, tree_map
 
 
 class Writer:
@@ -67,11 +68,16 @@ class Writer:
         self.logger.info("Running on CPU...")
             
     
-    def log_loss(self, k, loss):
-        self.logger.info(f'Iteration {k}, Loss: {loss:.4f}')
+    def log_loss(self, k, loss, n):
+        self.logger.info(f'Iteration {k}, Loss: {loss:.4f}, n: {n}')
         with open(self.csv_file, 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([k, loss])
+            
+    
+    def log_params(self, params):
+        num_params = sum(tree_util.tree_flatten(tree_map(lambda x: x.size, params))[0])
+        self.logger.info(f'Number of parameters: {num_params}')
 
 
     def close(self):

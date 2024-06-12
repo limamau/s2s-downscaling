@@ -1,9 +1,7 @@
 import numpy as np
 from utils import get_cdf
 
-
 # Inspired by https://github.com/btschwertfeger/python-cmethods/
-
 
 def get_inverse_of_cdf(base_cdf, insert_cdf, xbins):
     # Interpolate to find the inverse CDF values

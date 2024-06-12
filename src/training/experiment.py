@@ -3,7 +3,7 @@ import optax
 
 import xarray as xr
 
-from models.networks.unet import UNet
+from models.networks import diffusers, homemade, udffdb
 from .distances import *
 from .schedules import *
 
@@ -15,13 +15,19 @@ def _get_string(value):
         return str(value)
     
     
-def _get_network(model_identifier):
+def _get_network(model_identifier, **kwargs):
     net_map = {
-        'unet': UNet(),
+        'diffusers': diffusers.Network,
+        'homemade': homemade.Network,
+        'udffdb': udffdb.Network,
     }
     if model_identifier not in net_map:
         raise ValueError("Unsupported model: {}".format(model_identifier))
-    return net_map[model_identifier]
+    
+    # Filter out None values from kwargs
+    kwargs = {key: value for key, value in kwargs.items() if value is not None}
+    
+    return net_map[model_identifier](**kwargs)
 
 
 def _get_distance(dist_identifier):
@@ -120,7 +126,8 @@ class Experiment:
         self.data = _get_data(experiment.get('data_dir'))
         self.batch_size = _get_int(experiment.get('batch_size'))
         self.network_identifier = _get_string(experiment.get('network'))
-        self.network = _get_network(self.network_identifier)
+        self.dropout = _get_float(experiment.get('dropout'), error_if_none=False)
+        self.network = _get_network(self.network_identifier, dropout_rate=self.dropout)
         self.distance_identifier = _get_string(experiment.get('distance'))
         self.distance = _get_distance(self.distance_identifier)
         self.learning_rate = _get_float(experiment.get('learning_rate'))
