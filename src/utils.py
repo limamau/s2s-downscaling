@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import xarray as xr
 from math import radians, sin, cos, sqrt, atan2
 
-# Utils function in alfabetical order
+# Utils function in (almost) alfabetical order
 
 def batch_mul(a, b):
     """
@@ -22,6 +22,34 @@ def create_folder(path, overwrite=False):
     if os.path.exists(path) & overwrite:
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
+
+
+def filter_dry_images(data, threshold=0.01, fraction=0.2, seed=123, return_indices=False):
+    """
+    Filters out very dry images from the input data based on the mean rain information.
+    This is useful to avoid overweighting the model to no rain events.
+    """
+    # Calculate the mean rain information for each image
+    mean_rain = jnp.mean(data, axis=(1, 2))
+    
+    # Find the indices of very dry images
+    dry_indices = jnp.where(mean_rain < threshold)[0]
+    
+    # Randomly select 1/4 of the very dry images
+    num_to_select = int(len(dry_indices) * fraction)
+    rng = jax.random.PRNGKey(seed)
+    selected_indices = jax.random.choice(rng, dry_indices, shape=(num_to_select,), replace=False)
+    
+    # Find the indices of images that are not very dry
+    non_dry_indices = jnp.where(mean_rain >= threshold)[0]
+    
+    # Combine the selected dry indices with the non-dry indices
+    final_indices = jnp.concatenate([selected_indices, non_dry_indices])
+    
+    if return_indices:
+        return final_indices
+    else:
+        return data[final_indices]
 
 
 def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
@@ -155,39 +183,72 @@ def haversine(lon1, lat1, lon2, lat2):
     return distance
 
 
-def log_transform(data, epsilon=0.00001):
+def take_nan_imgs_out(data):
+    idx_to_keep = []
+    for i in range(data.shape[0]):
+        if not np.isnan(data[i]).any():
+            idx_to_keep.append(i)
+    data = data[idx_to_keep]
+    return data
+
+
+def log_transform(data, epsilon=1e-4):
     """
     Applies a log transformation to the input data using the formula x̃ = log(x + ϵ) − log(ϵ).
     """
     return jnp.log(data + epsilon) - jnp.log(epsilon)
 
 
-def normalize_data(data, sigma_data=1.0):
+def normalize_data(data, mean=None, std=None, norm_mean=0.0, norm_std=1.0):
     """
-    Normalizes the input data to have zero mean and the specified standard deviation (sigma_data).
+    Normalizes the input data to have zero mean and the specified standard deviation (std_data).
+    If mean and std are provided, they are used; otherwise, they are inferred from the data.
     """
-    mean = jnp.mean(data)
-    std = jnp.std(data)
-    return (data - mean) * sigma_data / std , mean, std
+    if mean is None:
+        mean = jnp.mean(data)
+    if std is None:
+        std = jnp.std(data)
+    normalized_data = (data - mean) * norm_std / std + norm_mean
+    return normalized_data, mean, std
 
 
-def unlog_transform(data, epsilon=0.00001):
+def process_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True):
+    """
+    Apply log transformation (if True) and normalization to the input data with given std_data.
+    """
+    if is_log_transforming:
+        data = log_transform(data)
+    data, mean, std = normalize_data(data, mean, std, norm_mean, norm_std)
+    return data, mean, std
+
+
+def delog_transform(data, epsilon=1e-4):
     """
     Inverse of log transformation.
     """
     return jnp.exp(data + jnp.log(epsilon)) - epsilon
 
 
-def unnormalize_data(data, mean, std, sigma_data=1.0):
+def denormalize_data(data, mean, std, norm_mean=0.0, norm_std=1.0):
     """
     Inverse of normalization.
     """
-    return data * std / sigma_data + mean
+    return (data-norm_mean) * std / norm_std + mean
+
+
+def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True):
+    """
+    Inverse of process_data.
+    """
+    data = denormalize_data(data, mean, std, norm_mean, norm_std)
+    if is_log_transforming:
+        data = delog_transform(data)
+    return data
 
 
 def write_dataset(times, lats, lons, data, filename):
     """
-    Creates an xarray dataset from the input data and writes it to a NetCDF file at the specified filename.
+    Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
     """
     # Create dataset
     ds = xr.Dataset(
@@ -203,18 +264,3 @@ def write_dataset(times, lats, lons, data, filename):
     
     # Write dataset
     ds.to_netcdf(filename, engine="h5netcdf")
-    
-    
-# I'm leaving this here...
-# # Interpolate functions to find approximate intersection
-# x  = np.linspace(min(x1[0], x2[0]), max(x1[-1], x2[-1]), 100)
-# f1 = np.interp(x, x1, y1)
-# f2 = np.interp(x, x2, y2)
-
-# interp1 = interpolate.InterpolatedUnivariateSpline(x, f1)
-# interp2 = interpolate.InterpolatedUnivariateSpline(x, f2)
-
-# def difference(x):
-#     return np.abs(interp1(x) - interp2(x))
-
-# return optimize.fsolve(difference, x0=x0)

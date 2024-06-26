@@ -87,8 +87,8 @@ class Network(nn.Module):
     dropout_rate: float = 0.0
     attention_features: int = 256
     num_heads: int = 8
-    tmin: float = 0.002
-    tmax: float = 80.0
+    imin: float = 0.002
+    imax: float = 80.0
     embedding_dim: int = 16
     
     def setup(self):

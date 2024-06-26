@@ -7,7 +7,7 @@ def get_psd(data, x_length, y_length, parseval_check=False):
     Nt, Ny, Nx = data.shape
     
     # Normalize data
-    data = normalize_data(data, sigma_data=0.5)[0]
+    data = normalize_data(data)[0]
 
     # Get radial wavenumber coordinate (from cartesian to polar coordinates)
     kx = np.fft.fftfreq(Nx, d=x_length/Nx)
@@ -16,7 +16,9 @@ def get_psd(data, x_length, y_length, parseval_check=False):
     k_grid = np.sqrt(kx_grid**2 + ky_grid**2)
     
     # Define 1D wavenumber bins
-    Nbins = int(np.sqrt(Nx*Ny)/2)-1 # not sure if the -1 is necessary
+    Nbins = int(np.sqrt(Nx*Ny)/2)
+    # if Nbins > 100:
+    #     Nbins -= 60 # to smooth things out
     eps = 1e-5
     k_bins = np.linspace(0, np.max(k_grid)+eps, Nbins)
     k_centers = 0.5 * (k_bins[1:] + k_bins[:-1])
@@ -63,7 +65,7 @@ def get_k_star(wavelengths, era5_psd, cpc_psd, threshold=1e-4):
     return k_star
 
 
-def get_sigma_star(data, psd_star):
+def get_std_star(data, psd_star):
     _, Ny, Nx = data.shape
     return np.sqrt(Nx*Ny * psd_star)
 

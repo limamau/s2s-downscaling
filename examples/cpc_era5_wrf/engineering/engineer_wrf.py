@@ -1,9 +1,10 @@
-import os
+import os, h5py
 import numpy as np
 
-from engineering.regridding import *
 from evaluation.plots import plot_maps
-from utils import *
+from utils import create_folder, write_dataset
+
+from engineering_utils import concat_wrf, regrid_wrf
 
 def main():
     # Data paths
@@ -13,7 +14,6 @@ def main():
     # Read and plot original datasets
     wrf_ds = concat_wrf(wrf_data_dir)
     time = 12
-    print("Plot time:", wrf_ds.Time.values[time])
     
     # To plot
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -22,15 +22,15 @@ def main():
     os.makedirs(os.path.join(figs_dir, "maps"), exist_ok=True)
     lons_2d = wrf_ds.XLONG.values
     lats_2d = wrf_ds.XLAT.values
-    times = wrf_ds.Time.values
-    original_data = wrf_ds.PREC_ACC_NC.values
+    times = wrf_ds.Time.values[12:60]
+    original_data = wrf_ds.PREC_ACC_NC.values[12:60,:,:]
     original_extent = (np.min(lons_2d), np.max(lons_2d), np.min(lats_2d), np.max(lats_2d))
     
     # Get reference grid from CPC
     cpc_file = os.path.join(cpc_data_dir, "cpc.h5")
-    cpc_ds = xr.open_dataset(cpc_file)
-    new_lons = cpc_ds.longitude.values
-    new_lats = cpc_ds.latitude.values
+    with h5py.File(cpc_file, 'r') as h5_file:
+        new_lons = h5_file['lons']
+        new_lats = h5_file['lats']
     
     # Postprocessed WRF data
     times, wrf_data = regrid_wrf(wrf_ds, new_lons, new_lats)

@@ -1,34 +1,60 @@
 from typing import Tuple
 from flax import linen as nn
 
+import jax.numpy as jnp
+import math
+
 from diffusers.models.embeddings_flax import get_sinusoidal_embeddings, FlaxTimestepEmbedding
 from diffusers.models.unets.unet_2d_blocks_flax import FlaxDownBlock2D, FlaxUpBlock2D, FlaxUNetMidBlock2DCrossAttn
+
+
+# The following function is ported over from the DDPM codebase:
+#  https://github.com/hojonathanho/diffusion/blob/master/diffusion_tf/nn.py
+def get_sinusoidal_embeddings_ddpm(timesteps, embedding_dim, max_positions=10000):
+    assert len(timesteps.shape) == 1
+    half_dim = embedding_dim // 2
+    # magic number 10000 is from transformers
+    emb = math.log(max_positions) / (half_dim - 1)
+    emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.float32) * -emb)
+    # emb = tf.range(num_embeddings, dtype=jnp.float32)[:, None] * emb[None, :]
+    # emb = tf.cast(timesteps, dtype=jnp.float32)[:, None] * emb[None, :]
+    emb = timesteps[:, None] * emb[None, :]
+    emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
+    if embedding_dim % 2 == 1:  # zero pad
+        emb = jnp.pad(emb, [[0, 0], [0, 1]])
+    assert emb.shape == (timesteps.shape[0], embedding_dim)
+    return emb
+
 
 # The following network is inspired in:
 # https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/unets/unet_2d.py
 # but using the blocks unet_2d_blocks_flax.py and some modifications
 
-
 class Network(nn.Module):
-    features: Tuple[int] = (128, 128, 256, 256)
+    features: Tuple[int] = (64, 128, 256, 512)
     kernel_size = (3,3)
-    layers_per_block: int = 1 # 2
+    layers_per_block: int = 2
     dropout_rate: float = 0.0
     attention_heads: int = 8
     norm_num_groups: int = 32
-    temb_dim: int = 256
-    tmin: float = 0.002
-    tmax: float = 80.0
+    iemb_dim: int = 256
+    imin: float = 1
+    imax: float = 120
 
     def setup(self):
         # Noise (time) embedding
-        self.tproj = lambda t: get_sinusoidal_embeddings(
-            t,
+        # self.iproj = lambda i: get_sinusoidal_embeddings(
+        #     i,
+        #     embedding_dim=self.features[0],
+        #     min_timescale=self.imin,
+        #     max_timescale=self.imax,
+        #     scale=1.0,
+        # )
+        self.iproj = lambda i: get_sinusoidal_embeddings_ddpm(
+            i,
             embedding_dim=self.features[0],
-            min_timescale=self.tmin,
-            max_timescale=self.tmax,
         )
-        self.temb = FlaxTimestepEmbedding(self.temb_dim)
+        self.iemb = FlaxTimestepEmbedding(self.iemb_dim)
         
         # Input
         self.conv_in = nn.Conv(self.features[0], self.kernel_size, padding='SAME')
@@ -85,10 +111,10 @@ class Network(nn.Module):
         self.conv_act = nn.silu
         self.conv_out = nn.Conv(self.features[0], self.kernel_size, padding='SAME')
 
-    def __call__(self, x, t, is_training=False):
+    def __call__(self, x, i, c, is_training=False):
         # Noise (time) embedding
-        temb = self.tproj(t)
-        temb = self.temb(temb)
+        iemb = self.iproj(i)
+        iemb = self.iemb(iemb)
 
         # Lifting
         x = self.conv_in(x)
@@ -96,19 +122,19 @@ class Network(nn.Module):
         # Downsample
         down_block_residuals = (x,)
         for down_block in self.down_blocks:
-            x, residuals = down_block(x, temb, deterministic=not is_training)
+            x, residuals = down_block(x, iemb, deterministic=not is_training)
             down_block_residuals += residuals
 
         # Middle
         # context is being passed as None, so the hidden states will be used instead (self-attention)
         # this can be a nice window to use topography and/or soil moisture as context
-        x = self.mid_block(x, temb, None, deterministic=not is_training)
+        x = self.mid_block(x, iemb, None, deterministic=not is_training)
 
         # Upsample
         for up_block in self.up_blocks:
             residuals = down_block_residuals[-(self.layers_per_block+1):]
             down_block_residuals = down_block_residuals[:-(self.layers_per_block+1)]
-            x = up_block(x, residuals, temb, deterministic=not is_training)
+            x = up_block(x, residuals, iemb, deterministic=not is_training)
 
         # Output
         x = self.conv_norm_out(x)

@@ -3,10 +3,38 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
+import matplotlib.ticker as ticker
 
-from utils import get_cdf
+from utils import get_pdf, get_cdf
 from engineering.spectrum import get_psd
 
+# Define the contour levels and colors
+CUSTOM_PRECIP_COLORS = [
+    '#ffffff', # White
+    '#ffffcc', # Light yellow
+    '#c7e9b4', # Light green
+    '#7fcdbb', # Moderate blue-green
+    '#41b6c4', # Moderate blue
+    '#1d91c0', # Blue
+    '#225ea8', # Darker blue
+    '#253494', # Dark blue
+    '#54278f', # Purple
+    '#7a0177', # Dark
+    '#c51b8a', # Pink
+]
+PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
+CUSTOM_VALUES = [0, 0.1, 0.5, 1, 2, 2.5, 5, 10, 30, 45, 60]
+CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 11)
+CUSTOM_CURVE_COLORS = [
+    '#E69F00', # Orange
+    '#D55E00', # Vermilion
+    '#0072B2', # Blue
+    '#009E73', # Bluish Green
+    '#999999', # Gray
+    '#56B4E9', # Sky Blue
+    '#CC79A7', # Reddish Purple
+]
+CURVE_CMAP = mcolors.ListedColormap(CUSTOM_CURVE_COLORS)
 
 def _add_swiss_latlon_labels(ax, plons, plats):
     if plons is not None:
@@ -54,24 +82,24 @@ def _write_label(ax, label):
 
 
 def plot_2maps(
-    arrays,
-    titles,
-    extents,
-    projections=None,
-    labels=None,
-    cmap='YlGnBu',
-    vmin=0,
-    vmax=3,
-    cbar_label='Precipitation (mm/h)',
+    arrays, 
+    titles, 
+    extents, 
+    projections,
+    labels,
+    cmap,
+    norm,
+    vmin,
+    vmax,
+    cbar_label,
 ):
     if projections is None:
         projections = [ccrs.PlateCarree(), ccrs.PlateCarree()]
     if labels is None:
         labels = [("lon", "lat"), ("lon", None)]
 
-    # Create figure and subplots
-    fig = plt.figure(figsize=(12, 5))
-    axes = [None, None] # dummy axes to be replaced
+    fig = plt.figure(figsize=(8, 2), dpi=300)
+    axes = [None, None]
     
     for i, ax in enumerate(axes):
         ax = fig.add_subplot(1, 2, i+1, projection=projections[i])
@@ -81,16 +109,22 @@ def plot_2maps(
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
+            norm=norm,
             vmin=vmin,
             vmax=vmax,
         )
         ax.add_feature(cfeature.BORDERS)
         ax.set_title(titles[i])
         _write_label(ax, labels[i])
+        ax.set_frame_on(False)
         axes[i] = ax
+        
     
-    fig.colorbar(img, shrink=0.25, ax=axes, location='bottom', label=cbar_label)
+    fig.subplots_adjust(left=0.1, right=0.87, bottom=0.225, top=0.95, wspace=0.1)
     
+    cbar_ax = fig.add_axes([0.9, 0.075, 0.015, 0.85])
+    fig.colorbar(img, cax=cbar_ax, label=cbar_label)
+
     return fig, axes
 
 
@@ -98,14 +132,20 @@ def plot_4maps(
     arrays, 
     titles, 
     extents, 
-    projections=None,
-    labels=None,
-    cmap='YlGnBu',
-    vmin=0,
-    vmax=15,
-    cbar_label='Precipitation (mm/h)',
+    projections,
+    labels,
+    cmap,
+    norm,
+    vmin,
+    vmax,
+    cbar_label,
 ):
-    fig, axs = plt.subplots(2, 2, figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, axs = plt.subplots(
+        2, 2,
+        figsize=(8, 3.5),
+        dpi=300,
+        subplot_kw={'projection': ccrs.PlateCarree()},
+    )
 
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
@@ -114,14 +154,19 @@ def plot_4maps(
             extent=extents[i], 
             transform=projections[i],
             cmap=cmap,
+            norm=norm,
             vmin=vmin, 
             vmax=vmax,
         )
         ax.add_feature(cfeature.BORDERS)
         ax.set_title(titles[i])
+        ax.set_frame_on(False)
         _write_label(ax, labels[i])
 
-    fig.colorbar(img, shrink=0.3, ax=axs, location='bottom', label=cbar_label)
+    fig.subplots_adjust(left=0.1, right=0.85, bottom=0.05, top=1.05, wspace=0.1, hspace=-0.2)
+    
+    cbar_ax = fig.add_axes([0.89, 0.25, 0.015, 0.5])
+    fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
     return fig, axs
 
@@ -132,9 +177,10 @@ def plot_maps(
     extents,
     projections=None,
     axis_labels=None,
-    cmap='YlGnBu',
-    vmin=0,
-    vmax=3,
+    cmap=PRECIP_CMAP,
+    norm=CUSTOM_NORM,
+    vmin=None,
+    vmax=None,
     cbar_label='Precipitation (mm/h)',
 ):
     """
@@ -146,9 +192,11 @@ def plot_maps(
     - extents (tuple): tuple of extents for the maps. Should match the length of arrays.
     - projections (tuple, optional): tuple of projections for the maps. Should match the length of arrays. Defaults to PlateCarree.
     - labels (tuple, optional): tuple of labels for the maps. Defaults to None.
-    - cmap (str, optional): colormap to use for plotting. Default is 'YlGnBu'.
-    - vmin (int, optional): minimum value for colormap. Default is 0.
-    - vmax (int, optional): maximum value for colormap. Default is 3. For high precipitation events, use 15 or even 45 for storms.
+    - cmap (matplotlib colormap, optional): colormap for the maps. Default is a custom colormap created with 11 values for precipitation analysis.
+    - norm (matplotlib.colors.Normalize, optional): normalization for colormap. 
+    Default is a custom colormap created with 11 values for precipitation analysis going from 0 to 60.
+    - vmin (int, optional): minimum value for colormap. Default is None. Use it if norm is None.
+    - vmax (int, optional): maximum value for colormap. Default is None. Use it if norm is None.
     - cbar_label (str, optional): label for the colorbar. Default is 'Precipitation (mm/h)'.
 
     ## Returns:
@@ -160,27 +208,45 @@ def plot_maps(
         if axis_labels is None:
             axis_labels = (("lon", "lat"), ("lon", None))
         return plot_2maps(
-            arrays, titles, extents, projections, axis_labels, cmap, vmin, vmax, cbar_label
+            arrays,
+            titles,
+            extents,
+            projections,
+            axis_labels,
+            cmap,
+            norm,
+            vmin,
+            vmax,
+            cbar_label,
         )
     elif len(arrays) == 4:
         projections = projections or [ccrs.PlateCarree()] * 4
         if axis_labels is None:
             axis_labels = ((None, "lat"), (None, None), ("lon", "lat"), ("lon", None))
         return plot_4maps(
-            arrays, titles, extents, projections, axis_labels, cmap, vmin, vmax, cbar_label
+            arrays,
+            titles,
+            extents,
+            projections,
+            axis_labels,
+            cmap,
+            norm,
+            vmin,
+            vmax,
+            cbar_label,
         )
     else:
-        raise ValueError("arrays must contain either 2 or 4 datasets.")
+        raise ValueError("Arrays must contain either 2 or 4 datasets.")
 
 
-def plot_cdfs(arrays, labels, n_quantiles=2000, colors=None, cmap='Dark2'):
+def plot_cdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     """
     Plot the cumulative distribution functions (CDFs) of multiple arrays.
 
     ## Parameters:
     - arrays (tuple of arrays): tuple of arrays to plot CDFs for.
     - labels (tuple of str): tuple of labels for the arrays. Should match the length of arrays.
-    - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 2000.
+    - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
     - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
     - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
 
@@ -203,23 +269,84 @@ def plot_cdfs(arrays, labels, n_quantiles=2000, colors=None, cmap='Dark2'):
     global_min = min(np.nanmin(arr) for arr in arrays)
     
     wide = abs(global_max - global_min) / n_quantiles
-    xbins = np.arange(global_min, global_max + wide, wide)
+    bins = np.arange(global_min, global_max + wide, wide)
 
-    cdfs = [get_cdf(arr, xbins) for arr in arrays]
+    cdfs = [get_cdf(arr, bins) for arr in arrays]
     
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9, 5))
     for i, (cdf, label) in enumerate(zip(cdfs, labels)):
-        ax.plot(xbins, cdf, label=label, color=colors[i])
+        ax.plot(bins, cdf, label=label, color=colors[i])
     
-    ax.set_xlabel('log(Precipitation (mm/h))')
-    ax.set_xscale('log')
+    ax.set_frame_on(False)
+    ax.grid(True, which='both', ls='--', alpha=0.5)
+    ax.set_xlabel('Precipitation (mm/h)')
     ax.set_ylabel('CDF')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
+    ax.get_xaxis().set_tick_params(which='both', color='white')
+    ax.get_yaxis().set_tick_params(which='both', color='white')
+    ax.legend()
+    
+    return fig, ax
+
+
+def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
+    """
+    Plot the probability density functions (PDFs) of multiple arrays.
+
+    ## Parameters:
+    - arrays (tuple of arrays): tuple of arrays to plot PDFs for.
+    - labels (tuple of str): tuple of labels for the arrays. Should match the length of arrays.
+    - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
+    - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
+
+    ## Returns:
+    - fig (matplotlib figure object)
+    - ax (matplotlib axis object)
+    """
+    if len(arrays) != len(labels):
+        raise ValueError("The number of arrays and labels must be the same.")
+    
+    if colors is not None:
+        if len(colors) != len(arrays):
+            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+    else:
+        cmap = plt.get_cmap(cmap)
+        colors = [cmap(i) for i in range(len(arrays))]
+    
+    global_max = max(np.nanmax(arr) for arr in arrays)
+    global_min = min(np.nanmin(arr) for arr in arrays)
+    
+    wide = abs(global_max - global_min) / n_quantiles
+    bins = np.arange(global_min, global_max + wide, wide)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for i, (arr, label) in enumerate(zip(arrays, labels)):
+        pdf = get_pdf(arr, bins)
+        bin_centers = (bins[:-1] + bins[1:]) / 2  # Get the center of each bin
+        
+        ax.plot(bin_centers, pdf, label=label, color=colors[i])
+    
+    ax.set_xlabel('Precipitation (mm/h)')
+    ax.set_ylabel('PDF')
     ax.legend()
     
     return fig, ax
     
     
-def plot_psds(arrays, labels, spatial_lengths, min_threshold=None, max_threshold=None, colors=None,cmap='Dark2'):
+def plot_psds(
+    arrays,
+    labels,
+    spatial_lengths,
+    min_threshold=None,
+    max_threshold=None,
+    colors=None,
+    cmap=CURVE_CMAP,
+    lambda_star=None,
+):
     """
     Plot multiple PSDs on the same figure.
 
@@ -231,6 +358,7 @@ def plot_psds(arrays, labels, spatial_lengths, min_threshold=None, max_threshold
     - min_threshold (float, optional): minimum threshold value to mask out low PSD values
     - max_threshold (float, optional): maximum threshold value to mask out high PSD values
     - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
+    - lambda_star (float, optional): point of intersection of curves (to be plotted as a vertical line).
 
     Returns:
     - fig (matplotlib figure object)
@@ -259,10 +387,21 @@ def plot_psds(arrays, labels, spatial_lengths, min_threshold=None, max_threshold
         if max_threshold is not None:
             mask &= (psd <= max_threshold)
         
-        ax.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i])
-
-    ax.set_xlabel(r"Wavelength $(km$)")
-    ax.set_ylabel("PSD")
+        plt.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i])
+        
     ax.legend(fontsize='large')
-
+        
+    if lambda_star is not None:
+        ax.axvline(lambda_star, color='black', linestyle='--', label=r'$\lambda^*$')
+        ax.text(lambda_star*1.1, 1e-5, r'$\lambda^\star$', fontsize='large')
+    
+    ax.set_frame_on(False)
+    ax.grid(True, which='major', ls='--', alpha=0.5)
+    ax.set_xlabel(r"Wavelength $(km$)")
+    ax.set_ylabel("Power spectral density")
+    ax.set_xscale('log')
+    ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
+    ax.get_xaxis().set_tick_params(which='both', color='white')
+    ax.get_yaxis().set_tick_params(which='both', color='white')
+    
     return fig, ax

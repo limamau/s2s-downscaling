@@ -5,3 +5,5 @@ __pycache__/
 .vscode/
 src/s2s_downscaling.egg-info
 todo
+*.out
+*_backup.py
