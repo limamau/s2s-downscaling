@@ -40,6 +40,12 @@ def main():
         
         months, hours = extract_month_hour(times)
         
+        # Exclude June and July
+        june_july_mask = (months == 6) | (months == 7)
+        data = data[june_july_mask]
+        months = months[june_july_mask]
+        hours = hours[june_july_mask]
+        
         data_arrays.append(data)
         months_arrays.append(months)
         hours_arrays.append(hours)
@@ -53,7 +59,7 @@ def main():
     print("Data shape:", data.shape)
     
     # Write data
-    with h5py.File(os.path.join(train_dir, "cpc_dry-filter.h5"), "w") as f:
+    with h5py.File(os.path.join(train_dir, "cpc_june-july-dry-filter.h5"), "w") as f:
         f.create_dataset("precip", data=data)
         f.create_dataset("month", data=months)
         f.create_dataset("hour", data=hours)

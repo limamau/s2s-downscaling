@@ -1,9 +1,8 @@
 import os
 import h5py
 import xarray as xr
-import matplotlib.pyplot as plt
 
-from evaluation.plots import plot_maps, plot_cdfs, plot_psds
+from evaluation.plots import *
 from evaluation.metrics import *
 from utils import create_folder, get_spatial_lengths
 
@@ -45,10 +44,10 @@ def print_metrics(reference, forecasts, unit):
             "name": "logCDF-l2 (no units)",
             "func": lambda ref, pred: logcdf_distance(ref["data"], pred["data"], "l2")
         },
-        {
-            "name": "logCDF-max (no units)",
-            "func": lambda ref, pred: logcdf_distance(ref["data"], pred["data"], "max")
-        },
+        # {
+        #     "name": "logCDF-max (no units)",
+        #     "func": lambda ref, pred: logcdf_distance(ref["data"], pred["data"], "max")
+        # },
         {
             "name": "Perkins Skill Score (no units)",
             "func": lambda ref, pred: perkins_skill_score(ref["data"], pred["data"])
@@ -60,19 +59,19 @@ def print_metrics(reference, forecasts, unit):
         {
             "name": "logPSD-l2 (no units)",
             "func": lambda ref, pred: logpsd_distance(
+                "l2",
                 ref["data"], ref["x_length"], ref["y_length"],
                 pred["data"], pred["x_length"], pred["y_length"],
-                "l2"
             )
         },
-        {
-            "name": "logPSD-max (no units)",
-            "func": lambda ref, pred: logpsd_distance(
-                ref["data"], ref["x_length"], ref["y_length"],
-                pred["data"], pred["x_length"], pred["y_length"],
-                "max"
-            )
-        },
+        # {
+        #     "name": "logPSD-max (no units)",
+        #     "func": lambda ref, pred: logpsd_distance(
+        #         "max",
+        #         ref["data"], ref["x_length"], ref["y_length"],
+        #         pred["data"], pred["x_length"], pred["y_length"],
+        #     )
+        # },
     ]
 
     for metric in metrics:
@@ -82,7 +81,7 @@ def print_metrics(reference, forecasts, unit):
             print("  - {}: {:.3f}".format(forecast['name'], value))
         print("\n")
 
-def main(data_dir, filenames, time_index, Nx, Ny, plot_time):
+def main(data_dir, filenames, time_index, Nx, Ny, plot_times):
     # Load and preprocess data
     data = load_data(data_dir, filenames)
     data = preprocess_data(data, time_index, Nx, Ny)
@@ -101,18 +100,22 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_time):
     create_folder(figs_dir)
 
     # Plot maps
-    arrays = [data[key]['precip'][plot_time, :, :] for key in filenames.keys()]
-    
-    print("Check times:")
-    time_arrays = [data[key]['times'] for key in filenames.keys()]
-    for times in time_arrays:
-        print(times[-1])
-    
-    titles = (None, None, None, None)
-    # titles = list(filenames.keys())
-    extents = [extent] * len(arrays)
-    fig, _ = plot_maps(arrays, titles, extents)
-    fig.savefig(os.path.join(figs_dir, "maps_comparison.png"))
+    first = True
+    for plot_time in plot_times:
+        arrays = [data[key]['precip'][plot_time, :, :] for key in filenames.keys()]
+        
+        if first:
+            print("Check times:")
+            time_arrays = [data[key]['times'] for key in filenames.keys()]
+            for times in time_arrays:
+                print(times[-1])
+            first = False
+        
+        titles = (None,)*len(arrays)
+        # titles = list(filenames.keys())
+        extents = [extent] * len(arrays)
+        fig, _ = plot_maps(arrays, titles, extents)
+        fig.savefig(os.path.join(figs_dir, "maps_comparison_H{:02d}.png".format(plot_time)))
 
     # Plot CDFs
     arrays = [data[key]['precip'] for key in filenames.keys()]
@@ -124,27 +127,29 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_time):
     spatial_lengths = [(x_length, y_length) for _ in range(len(arrays))]
     fig, _ = plot_psds(arrays, labels, spatial_lengths, min_threshold=1e-10)
     fig.savefig(os.path.join(figs_dir, "psd_comparison.png"))
+    
+    reference = forecasts.pop(2)  # Assuming the first item is the reference
 
     # Print metrics
-    reference = forecasts.pop(2)  # Assuming the first item is the reference
     print_metrics(reference, forecasts, "mm/h")
 
 if __name__ == "__main__":
     data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
     filenames = {
-        "QM (all)": "era5_qm_all.h5",
-        "QM (point-to-point)": "era5_qm_point.h5",
+        "ERA5 (nearest)": "era5_nearest.h5",
+        "ERA5 (low-pass)": "era5_low-pass.h5",
         "CombiPrecip": "cpc.h5",
         "WRF": "wrf.h5",
-        # "ERA5 (low-pass)": "era5_low-pass.h5",
-        # "paired_qm_all": "paired_qm_all.h5",
-        # "unpaired_qm_all": "unpaired_qm_all.h5",
-        # "paired_qm_point": "paired_qm_point.h5",
-        # "unpaired_qm_point": "unpaired_qm_point.h5",
+        "QM (all)": "era5_qm_all.h5",
+        "QM (point)": "era5_qm_point.h5",
+        "CM (all) - 2 steps": "cm_qm_all_2.h5",
+        "CM (all) - 4 steps": "cm_qm_all_4.h5",
+        "CM (point) - 2 steps": "cm_qm_point_2.h5",
+        "CM (point) - 4 steps": "cm_qm_point_4.h5",
     }
     time_index = slice(0, 48)
     Nx = 336
     Ny = 224
-    plot_time = -10
+    plot_times = [0, 8, 16, 24, 32, 38]
 
-    main(data_dir, filenames, time_index, Nx, Ny, plot_time)
+    main(data_dir, filenames, time_index, Nx, Ny, plot_times)

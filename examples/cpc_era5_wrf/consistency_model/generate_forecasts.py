@@ -2,15 +2,19 @@ import os, h5py
 import numpy as np
 import jax
 import jax.numpy as jnp
+import xarray as xr
+from time import time
 
 from models.consistency_model import ConsistencyModel
 from training.experiment import Experiment
 from training.checkpointing import Checkpointer
+from evaluation.evaluate import multi_step_sampling
 from utils import *
 
 def main():
+    start_time = time()
     # Experiment folder and name
-    experiment_name = "debug"
+    experiment_name = "diffusers_jj"
     script_dir = os.path.dirname(os.path.realpath(__file__))
     experiment_dir = os.path.join(script_dir, "experiments", experiment_name)
     figs_dir = os.path.join(script_dir, "figs")
@@ -24,7 +28,7 @@ def main():
     )
     net = experiment.network
     imin = experiment.imin
-    imax = 182 # experiment.imax
+    imax = 1280 
     noise_schedule = experiment.noise_schedule
     Nt, Ny, Nx = experiment.dimensions
     log_transform = experiment.is_log_transforming
@@ -37,7 +41,7 @@ def main():
     
     # ... and the checkpoints
     ckpter = Checkpointer(experiment_dir)
-    latest_step = 30000 # ckpter.manager.latest_step()
+    latest_step = ckpter.manager.latest_step()
     print("Latest step:", latest_step)
     restored = ckpter.manager.restore(latest_step)
     params = restored['params']
@@ -52,9 +56,11 @@ def main():
     }
     
     with h5py.File(era5_files['qm_all'], "r") as f:
-        era5_lons = f['longitude'][:Nx]
-        era5_lats = f['latitude'][:Ny]
-        era5_times = f['time'][:]
+        lons = f['longitude'][:Nx]
+        lats = f['latitude'][:Ny]
+    times = xr.open_dataset(era5_files['qm_all'], engine='h5netcdf')['time'].values[:48]
+    Nt = len(times)
+    print("Nt:", Nt)
         
     # PRNG to the Gaussian noise
     rng = jax.random.PRNGKey(37)
@@ -81,19 +87,44 @@ def main():
                 log_transform,
             )
             
+    
             # Add noises
-            paired_i = jnp.full((batch_size,), 35)
+            paired_i = 830
             paired_noise = noise_schedule(paired_i, imax)
-            unpaired_i = jnp.full((batch_size,), 120)
+            print("Paired noise:", paired_noise)
+            unpaired_i = 830
             unpaired_noise = noise_schedule(unpaired_i, imax)
-            rng, z_rng = jax.random.split(rng, 2)
-            z = jax.random.normal(z_rng, (end_idx-start_idx, Ny, Nx, 1))
-            x_paired = x + batch_mul(paired_noise, z)
-            x_unpaired = x + batch_mul(unpaired_noise, z)
-            
+            print("Unpaired noise:", unpaired_noise)
+        
             # Output time
-            paired_output = cm.apply(params, x_paired, None, paired_noise, paired_i)
-            unpaired_output = cm.apply(params, x_unpaired, None, unpaired_noise, unpaired_i)
+            num_steps = 4
+            rng, rng_paired, rng_unpaired = jax.random.split(rng, 3)
+            paired_output = multi_step_sampling(
+                cm,
+                noise_schedule,
+                params,
+                rng_paired,
+                x,
+                None,
+                1,
+                imax,
+                paired_i,
+                1,
+                num_steps=2,
+            )
+            unpaired_output = multi_step_sampling(
+                cm,
+                noise_schedule,
+                params,
+                rng_unpaired,
+                x,
+                None,
+                1,
+                imax,
+                unpaired_i,
+                1,
+                num_steps=4,
+            )
             
             # Restore normalizations
             paired_imgs = deprocess_data(
@@ -103,6 +134,7 @@ def main():
                     norm_mean,
                     norm_std,
                     log_transform,
+                    clip_zero=True,
             ).__array__()[:, :, :, 0]
             print("paired out max:", np.max(paired_output))
             unpaired_imgs = deprocess_data(
@@ -112,6 +144,7 @@ def main():
                     norm_mean,
                     norm_std,
                     log_transform,
+                    clip_zero=True,
             ).__array__()[:, :, :, 0]
             print("unpaired out max:", np.max(unpaired_output))
             
@@ -120,10 +153,11 @@ def main():
             unpaired_outputs[start_idx:end_idx,:,:] = unpaired_imgs
         
         # Save datasets
-        write_dataset(era5_times, era5_lats, era5_lons, paired_outputs, os.path.join(test_data_dir, f"paired_{key}.h5"))
-        write_dataset(era5_times, era5_lats, era5_lons, unpaired_outputs, os.path.join(test_data_dir, f"unpaired_{key}.h5"))
+        write_dataset(times, lats, lons, paired_outputs, os.path.join(test_data_dir, f"cm_{key}_{2}.h5"))
+        write_dataset(times, lats, lons, unpaired_outputs, os.path.join(test_data_dir, f"cm_{key}_{4}.h5"))
 
     print("Done!")
+    print("Time elapsed:", time() - start_time)
 
 if __name__ == "__main__":
     main()

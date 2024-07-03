@@ -32,7 +32,7 @@ def regrid_cpc(data, xs, ys, extent):
     return new_lat, new_lon, new_data
 
 
-def regrid_era5(raw_era5_lats, raw_era5_lons, raw_era5_data, new_lats, new_lons):
+def regrid_era5(raw_era5_lats, raw_era5_lons, raw_era5_data, new_lats, new_lons, method="linear"):
     # Create grid
     old_lon_2d, old_lat_2d = np.meshgrid(raw_era5_lons, raw_era5_lats)
     new_lon_2d, new_lat_2d = np.meshgrid(new_lons, new_lats)
@@ -44,6 +44,7 @@ def regrid_era5(raw_era5_lats, raw_era5_lons, raw_era5_data, new_lats, new_lons)
         old_lat_2d,
         new_lon_2d,
         new_lat_2d,
+        method=method,
     )
     
     return new_data
