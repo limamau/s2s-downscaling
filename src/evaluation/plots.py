@@ -4,9 +4,11 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
 import matplotlib.ticker as ticker
+from scipy import stats
 
 from utils import get_pdf, get_cdf
 from engineering.spectrum import get_psd
+from .metrics import mean_absolute_error, root_mean_squared_error
 
 # Define the contour levels and colors
 CUSTOM_PRECIP_COLORS = [
@@ -33,6 +35,9 @@ CUSTOM_CURVE_COLORS = [
     '#999999', # Gray
     '#56B4E9', # Sky Blue
     '#CC79A7', # Reddish Purple
+    '#F0E442', # Yellow
+    '#007D65', # Teal
+    '#FF00FF', # Magenta
 ]
 CURVE_CMAP = mcolors.ListedColormap(CUSTOM_CURVE_COLORS)
 
@@ -98,7 +103,7 @@ def plot_2maps(
     if labels is None:
         labels = [("lon", "lat"), ("lon", None)]
 
-    fig = plt.figure(figsize=(8, 2), dpi=300)
+    fig = plt.figure(figsize=(8, 2), dpi=500)
     axes = [None, None]
     
     for i, ax in enumerate(axes):
@@ -182,64 +187,88 @@ def plot_maps(
     vmin=None,
     vmax=None,
     cbar_label='Precipitation (mm/h)',
+    figsize=(8, 4)
 ):
     """
-    General function to plot either 2 or 4 maps.
+    General function to plot any even number of maps.
 
     ## Parameters:
-    - arrays (tuple): tuple of data arrays. Should be either 2 or 4 elements long.
+    - arrays (tuple): tuple of data arrays. Should be an even number of elements.
     - titles (tuple): tuple of titles for the maps. Should match the length of arrays.
     - extents (tuple): tuple of extents for the maps. Should match the length of arrays.
     - projections (tuple, optional): tuple of projections for the maps. Should match the length of arrays. Defaults to PlateCarree.
-    - labels (tuple, optional): tuple of labels for the maps. Defaults to None.
-    - cmap (matplotlib colormap, optional): colormap for the maps. Default is a custom colormap created with 11 values for precipitation analysis.
-    - norm (matplotlib.colors.Normalize, optional): normalization for colormap. 
-    Default is a custom colormap created with 11 values for precipitation analysis going from 0 to 60.
+    - axis_labels (tuple, optional): tuple of labels for the maps. Defaults to None.
+    - cmap (matplotlib colormap, optional): colormap for the maps.
+    - norm (matplotlib.colors.Normalize, optional): normalization for colormap.
     - vmin (int, optional): minimum value for colormap. Default is None. Use it if norm is None.
     - vmax (int, optional): maximum value for colormap. Default is None. Use it if norm is None.
     - cbar_label (str, optional): label for the colorbar. Default is 'Precipitation (mm/h)'.
+    - figsize (tuple, optional): figure size. Default is (8, 4).
 
     ## Returns:
     - fig (matplotlib figure object)
-    - ax (matplotlib axis object or list of axis objects)
+    - axs (matplotlib axes object)
     """
-    if len(arrays) == 2:
-        projections = projections or [ccrs.PlateCarree(), ccrs.PlateCarree()]
-        if axis_labels is None:
-            axis_labels = (("lon", "lat"), ("lon", None))
-        return plot_2maps(
-            arrays,
-            titles,
-            extents,
-            projections,
-            axis_labels,
-            cmap,
-            norm,
-            vmin,
-            vmax,
-            cbar_label,
+    n_plots = len(arrays)
+    if n_plots % 2 != 0:
+        raise ValueError("Number of arrays must be even.")
+
+    n_rows = n_plots // 2
+    fig_height = figsize[1] * (n_rows / 2)
+    fig_width = figsize[0]
+    
+    # Create figure with a consistent space for the colorbar
+    fig = plt.figure(figsize=(fig_width, fig_height), dpi=300)
+    
+    # Create a gridspec that reserves space for the colorbar
+    gs = fig.add_gridspec(n_rows, 3, width_ratios=[1, 1, 0.05], wspace=0.1, hspace=0.3)
+
+    axs = []
+    projections = projections or [ccrs.PlateCarree()] * n_plots
+    
+    if axis_labels is None:
+        axis_labels = [(None, None)] * n_plots
+        for i in range(n_plots):
+            if i % 2 == 0:  # Left column
+                axis_labels[i] = (None, "lat")
+            if i >= n_plots - 2:  # Bottom row
+                axis_labels[i] = ("lon", axis_labels[i][1])
+
+    for i in range(n_plots):
+        row = i // 2
+        col = i % 2
+        ax = fig.add_subplot(gs[row, col], projection=projections[i])
+        img = ax.imshow(
+            arrays[i],
+            origin='lower', 
+            extent=extents[i], 
+            transform=projections[i],
+            cmap=cmap,
+            norm=norm,
+            vmin=vmin, 
+            vmax=vmax,
         )
-    elif len(arrays) == 4:
-        projections = projections or [ccrs.PlateCarree()] * 4
-        if axis_labels is None:
-            axis_labels = ((None, "lat"), (None, None), ("lon", "lat"), ("lon", None))
-        return plot_4maps(
-            arrays,
-            titles,
-            extents,
-            projections,
-            axis_labels,
-            cmap,
-            norm,
-            vmin,
-            vmax,
-            cbar_label,
-        )
-    else:
-        raise ValueError("Arrays must contain either 2 or 4 datasets.")
+        ax.add_feature(cfeature.BORDERS)
+        ax.set_title(titles[i])
+        ax.set_frame_on(False)
+        _write_label(ax, axis_labels[i])
+        axs.append(ax)
+
+    # Create a single axis for the colorbar
+    cbar_ax = fig.add_subplot(gs[n_rows//2-1:n_rows//2+1, -1])
+    fig.colorbar(img, cax=cbar_ax, label=cbar_label)
+
+    return fig, axs
 
 
-def plot_cdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
+def plot_cdfs(
+    arrays,
+    labels,
+    n_quantiles=100,
+    colors=None,
+    cmap=CURVE_CMAP,
+    xlim_max=60,
+):
     """
     Plot the cumulative distribution functions (CDFs) of multiple arrays.
 
@@ -249,6 +278,7 @@ def plot_cdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
     - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
     - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
+    - xlim_max (float, optional): maximum value for the x-axis. Default is 60.
 
     ## Returns:
     - fig (matplotlib figure object)
@@ -266,7 +296,7 @@ def plot_cdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     
     cmap = plt.get_cmap(cmap)
     global_max = max(np.nanmax(arr) for arr in arrays)
-    global_min = min(np.nanmin(arr) for arr in arrays)
+    global_min = max(min(np.nanmin(arr) for arr in arrays), 0)
     
     wide = abs(global_max - global_min) / n_quantiles
     bins = np.arange(global_min, global_max + wide, wide)
@@ -280,13 +310,14 @@ def plot_cdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     ax.set_frame_on(False)
     ax.grid(True, which='both', ls='--', alpha=0.5)
     ax.set_xlabel('Precipitation (mm/h)')
-    ax.set_ylabel('CDF')
+    ax.set_ylabel('Cumulative distribution function')
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
     ax.get_xaxis().set_tick_params(which='both', color='white')
     ax.get_yaxis().set_tick_params(which='both', color='white')
     ax.legend()
+    plt.xlim(0, xlim_max)
     
     return fig, ax
 
@@ -333,6 +364,7 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     ax.set_xlabel('Precipitation (mm/h)')
     ax.set_ylabel('PDF')
     ax.legend()
+    plt.xlim(global_min, 60)
     
     return fig, ax
     
@@ -405,3 +437,56 @@ def plot_psds(
     ax.get_yaxis().set_tick_params(which='both', color='white')
     
     return fig, ax
+
+
+def plot_MAE(arrays, reference, labels, cmap=CURVE_CMAP, colors=None):
+    """
+    Plot the Mean Absolute Error (MAE) of multiple arrays with respect to a reference over time.
+    
+    
+    Parameters:
+    - arrays (tuple of arrays): tuple of data arrays to compute MAE for.
+    - reference (array): reference data array to compute MAE with.
+    - labels (tuple of str): tuple of labels for the data arrays. Should match the length of arrays.
+    - cmap (str, optional): colormap to use for plotting. Default is custom colormap
+    - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    """
+    if len(arrays) != len(labels):
+        raise ValueError("The number of data arrays and labels must be the same.")
+    
+    if colors is not None:
+        if len(colors) != len(arrays):
+            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+    else:
+        cmap = plt.get_cmap(cmap)
+        colors = [cmap(i) for i in range(len(arrays))]
+        
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    for i, (data, label) in enumerate(zip(arrays, labels)):
+        mae = mean_absolute_error(data, reference, axis=(1,2,))
+        ax.plot(mae, label=label, color=colors[i])
+        
+    ax.legend(fontsize='large')
+    ax.set_frame_on(False)
+    ax.grid(True, which='major', ls='--', alpha=0.5)
+    ax.set_xlabel("Timesteps (h)")
+    ax.set_ylabel("Mean Absolute Error")
+    
+    return fig, ax
+    
+
+
+def plot_MAE(arrays, reference, labels, cmap=CURVE_CMAP, colors=None):
+    """
+    Plot the Root Mean Absolute Error (RMSE) of multiple arrays with respect to a reference over time.
+    
+    
+    Parameters:
+    - arrays (tuple of arrays): tuple of data arrays to compute RMSE for.
+    - reference (array): reference data array to compute RMSE with.
+    - labels (tuple of str): tuple of labels for the data arrays. Should match the length of arrays.
+    - cmap (str, optional): colormap to use for plotting. Default is custom colormap
+    - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    """
+    pass

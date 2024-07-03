@@ -10,14 +10,14 @@ def logcdf_distance(obs, sim, distance, n_quantiles=2000):
     """
     Calculate the log of the CDF distance between two arrays.
 
-    Parameters:
+    ## Parameters:
     obs (array): Observed values.
     sim (array): Simulated values.
     distance (string): Distance metric to use. Options are "l1", "l2", and "max". 
     The latest corresponds to the Kolmogorov-Smirnov distance.
     
 
-    Returns:
+    ## Returns:
     cdf_distance (float): CDF distance.
     """
     # Define bins for the histogram
@@ -26,9 +26,10 @@ def logcdf_distance(obs, sim, distance, n_quantiles=2000):
     wide = abs(global_max - global_min) / n_quantiles
     bins = np.arange(global_min, global_max + wide, wide)
     
-    # Get log-CDF but exclude the zero on the beginning as it's not defined
-    cdf_obs = np.log(get_cdf(obs, bins)[1:])
-    cdf_sim = np.log(get_cdf(sim, bins)[1:])
+    # Get log-CDF
+    epsilon=1e-5
+    cdf_obs = np.log(get_cdf(obs, bins) + epsilon) - np.log(epsilon)
+    cdf_sim = np.log(get_cdf(sim, bins) + epsilon) - np.log(epsilon)
     
     match distance:
         case "l1":
@@ -48,39 +49,40 @@ def crps(obs, sim):
     Calculate the Continuous Ranked Probability Score (CRPS) between two arrays.
     Currently using the properscoring library.
     
-    Parameters:
+    ## Parameters:
     obs (array): Observed values.
     sim (array): Simulated values.
     
-    Returns:
+    ## Returns:
     crps (float): Continuous Ranked Probability Score.
     """
     return np.mean(ps.crps_ensemble(obs, sim))
 
 
-def mean_absolute_error(obs, sim):
+def mean_absolute_error(obs, sim, axis=(0,1,2)):
     """
     Calculate the Mean Absolute Error (MAE) between two arrays.
 
-    Parameters:
+    ## Parameters:
     obs (array): Observed values.
     sim (array): Simulated values.
+    axis (tuple): Axes over which to compute the MAE. Default is (0,1,2).
 
-    Returns:
+    ## Returns:
     mae (float): Mean Absolute Error.
     """
-    return np.mean(np.abs(obs - sim))
+    return np.mean(np.abs(obs - sim), axis=axis)
 
 
 def perkins_skill_score(obs, sim, n_quantiles=2000):
     """
     Calculate the Perkins Skill Score (PSS) between two arrays.
 
-    Parameters:
+    ## Parameters:
     obs (array): Observed values.
     sim (array): Simulated values.
 
-    Returns:
+    ## Returns:
     pss (float): Perkins Skill Score.
     """
     # Find global min and max values across observed and historical simulated data
@@ -99,23 +101,40 @@ def perkins_skill_score(obs, sim, n_quantiles=2000):
     return pss
 
 
-def logpsd_distance(obs, obs_x_length, obs_y_length, sim, sim_x_length, sim_y_length, distance, num=100):
+def logpsd_distance(
+    distance,
+    obs,
+    obs_x_length,
+    obs_y_length,
+    sim,
+    sim_x_length=None,
+    sim_y_length=None,
+    num=100,
+):
     """
     Calculate the log of the Potential Spectral Density (PSD) distance between two arrays.
-    The length of the x and y axis is required to calculate the PSD of both arrays.
+    If the physical lengths of the x and y axes are not provided for the simulated data,
+    it is assumed that they are the same as the observed data (this will save some computation time).
 
-    Parameters:
-    obs (array): Observed values.
-    sim (array): Simulated values.
+    ## Parameters:
     distance (string): Distance metric to use. Options are "l1", "l2", and "max".
-    x_length (float): Physical length of the x-axis.
-    y_length (float): Physical length of the y-axis.
+    obs (array): Observed values.
+    obs_x_length (float): Physical length of the x-axis.
+    obs_y_length (float): Physical length of the y-axis.
+    sim (array): Simulated values.
+    sim_x_length (optional, float): Physical length of the x-axis for the simulated data. Default is None.
+    sim_y_length (optional, float): Physical length of the y-axis for the simulated data. Default is None.
     num (int): Number of points to interpolate the PSD. Standard value is 100.
-    
 
-    Returns:
+    ## Returns:
     psd-distance (float): PSD distance.
     """
+    different_lengths = True
+    if (sim_x_length is None) & (sim_y_length is None):
+        sim_x_length = obs_x_length
+        sim_y_length = obs_y_length
+        different_lengths = False
+        
     # Get wavelengths and PSDs
     obs_wavelengths, obs_psd = get_psd(obs, obs_x_length, obs_y_length)
     sim_wavelengths, sim_psd = get_psd(sim, sim_x_length, sim_y_length)
@@ -124,12 +143,17 @@ def logpsd_distance(obs, obs_x_length, obs_y_length, sim, sim_x_length, sim_y_le
     obs_psd = np.log(obs_psd)
     sim_psd = np.log(sim_psd)
     
-    # Interpolate to the commons wavelengths
-    min_wavelength = np.max([obs_wavelengths[0], sim_wavelengths[0]])
-    max_wavelength = np.min([obs_wavelengths[-1], sim_wavelengths[-1]])
-    wavelengths = np.linspace(min_wavelength, max_wavelength, num=num)
-    obs_psd = np.interp(wavelengths, obs_wavelengths, obs_psd)
-    sim_psd = np.interp(wavelengths, sim_wavelengths, sim_psd)
+    if different_lengths:
+        # Interpolate to the commons wavelengths
+        min_wavelength = np.max([obs_wavelengths[0], sim_wavelengths[0]])
+        max_wavelength = np.min([obs_wavelengths[-1], sim_wavelengths[-1]])
+        wavelengths = np.linspace(min_wavelength, max_wavelength, num=num)
+        obs_psd = np.interp(wavelengths, obs_wavelengths, obs_psd)
+        sim_psd = np.interp(wavelengths, sim_wavelengths, sim_psd)
+    
+    else:
+        # Use the observed wavelengths (as simulated will be the same)
+        wavelengths = obs_wavelengths
     
     match distance:
         case "l1":
@@ -148,11 +172,11 @@ def root_mean_squared_error(obs, sim):
     """
     Calculate the Mean Squared Error (MSE) between two arrays.
 
-    Parameters:
+    ## Parameters:
     obs (array): Observed values.
     sim (array): Simulated values.
 
-    Returns:
+    ## Returns:
     mse (float): Mean Squared Error.
     """
     return np.sqrt(np.mean((obs - sim)**2))

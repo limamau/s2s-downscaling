@@ -1,12 +1,13 @@
 import jax.numpy as jnp
 from utils import batch_mul
+from flax import linen as nn
 
 
 class ConsistencyModel():
     def __init__(self, std_data, min_noise, F):
-        self.std_data = std_data
-        self.min_noise = min_noise
-        self.F = F
+        self.std_data: float = std_data
+        self.min_noise: float = min_noise
+        self.F: nn.Module = F
         
     
     def _c_skip(self, noise):
@@ -18,4 +19,5 @@ class ConsistencyModel():
     
     
     def apply(self, params, x, c, noise, i, is_training=False, rngs=None):
-        return batch_mul(self._c_skip(noise), x) + batch_mul(self._c_out(noise), self.F.apply(params, x, i, c, is_training=is_training, rngs=rngs))
+        r = batch_mul(self._c_skip(noise), x) + batch_mul(self._c_out(noise), self.F.apply(params, x, i, c, is_training=is_training, rngs=rngs))
+        return r

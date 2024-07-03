@@ -4,7 +4,7 @@ import numpy as np
 
 from models.networks import diffusers, homemade, udffdb, conditional
 from .distances import *
-from .schedules_and_weighting import *
+from .schedules import *
 
 
 def _get_string(value):
@@ -82,13 +82,12 @@ def _get_data(file, main_variables, conditional_variables, max_len):
             for i, var in enumerate(main_variables):
                 data[:,:,:,i] = f[var][:Nt,:,:]
         
-        # FIXME: Get conditions
-        if conditional_variables is not None:
-            conditions = np.empty((Nt, len(conditional_variables), 1))
-            for i, var in enumerate(conditional_variables):
-                conditions[:,i,0] = f[var][:Nt]
-        else:
-            conditions = None
+            if conditional_variables is not None:
+                conditions = np.empty((Nt, len(conditional_variables), 1))
+                for i, var in enumerate(conditional_variables):
+                    conditions[:,i,0] = f[var][:Nt]
+            else:
+                conditions = None
         
         return data, conditions, Nt
 
@@ -197,8 +196,8 @@ class Experiment:
         self.mu0 = _get_float(experiment.get('mu0'), error_if_none=False)
         self.s0 = _get_float(experiment.get('s0'), error_if_none=False)
         self.s1 = _get_float(experiment.get('s1'), error_if_none=False)
-        self.N_identifier = experiment.get('discretization_steps')
-        self.discretization_steps = _get_N(self.N_identifier, self.s0, self.s1, self.training_iterations)
+        self.discretization_steps_identifier = experiment.get('discretization_steps')
+        self.discretization_steps = _get_N(self.discretization_steps_identifier, self.s0, self.s1, self.training_iterations)
         self.mu_identifier = experiment.get('mu')
         self.mu = _get_mu(self.mu_identifier, self.s0, self.mu0, self.discretization_steps)
         self.noise_schedule = _get_noise_schedule(self.min_noise, self.max_noise)

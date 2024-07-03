@@ -64,4 +64,4 @@ def loss_weight(target_noise, online_noise):
     """
     Returns the loss weight.
     """
-    return 1 / jnp.sqrt(online_noise - target_noise)
+    return 1 / (online_noise - target_noise)

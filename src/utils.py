@@ -24,7 +24,7 @@ def create_folder(path, overwrite=False):
     os.makedirs(path, exist_ok=True)
 
 
-def filter_dry_images(data, threshold=0.01, fraction=0.2, seed=123, return_indices=False):
+def filter_dry_images(data, threshold=0.1, fraction=0.2, seed=123, return_indices=False):
     """
     Filters out very dry images from the input data based on the mean rain information.
     This is useful to avoid overweighting the model to no rain events.
@@ -236,13 +236,15 @@ def denormalize_data(data, mean, std, norm_mean=0.0, norm_std=1.0):
     return (data-norm_mean) * std / norm_std + mean
 
 
-def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True):
+def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True, clip_zero=False):
     """
     Inverse of process_data.
     """
     data = denormalize_data(data, mean, std, norm_mean, norm_std)
     if is_log_transforming:
         data = delog_transform(data)
+    if clip_zero:
+        data = jnp.clip(data, 0, None)
     return data
 
 

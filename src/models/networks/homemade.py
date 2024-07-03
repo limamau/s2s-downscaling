@@ -2,20 +2,23 @@ from typing import Tuple
 from jax.image import resize
 import jax.numpy as jnp
 from flax import linen as nn
+import math
 
 # The following network is:
 # homemade
 
 
-class SinusoidalPositionalEmbedding(nn.Module):
-    embedding_dim: int
-    scale: float = 16.0
-    
-    def __call__(self, noise):
-        position = jnp.arange(0, self.embedding_dim, 2)
-        div_term = jnp.exp(position * -(jnp.log(self.scale) / self.embedding_dim))
-        pos = noise[:, None] * div_term[None, :]
-        return jnp.concatenate([jnp.sin(pos), jnp.cos(pos)], axis=-1)
+def get_sinusoidal_embeddings_ddpm(timesteps, embedding_dim, max_positions=10000):
+    assert len(timesteps.shape) == 1
+    half_dim = embedding_dim // 2
+    emb = math.log(max_positions) / (half_dim - 1)
+    emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.float32) * -emb)
+    emb = timesteps[:, None] * emb[None, :]
+    emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
+    if embedding_dim % 2 == 1:  # zero pad
+        emb = jnp.pad(emb, [[0, 0], [0, 1]])
+    assert emb.shape == (timesteps.shape[0], embedding_dim)
+    return emb
 
 
 class ResNetBlock(nn.Module):
@@ -56,6 +59,26 @@ class DownSample(nn.Module):
         x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
         x = nn.Dropout(self.dropout_rate, deterministic=deterministic)(x)
         return x
+    
+    
+class AttnDownSample(nn.Module):
+    features: int
+    kernel_size: Tuple[int] = (3, 3)
+    strides: Tuple[int] = (2, 2)
+    window_shape: Tuple[int] = (2, 2)
+    num_groups: int = 8
+    dropout_rate: float = 0.0
+    num_heads: int = 8
+    attention_features: int = 256
+
+    @nn.compact
+    def __call__(self, x, temb, deterministic=True):
+        x = nn.Conv(features=self.features, kernel_size=self.kernel_size, strides=self.strides)(x)
+        x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
+        x += nn.MultiHeadDotProductAttention(num_heads=self.num_heads, qkv_features=self.attention_features)(x)
+        x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
+        x = nn.Dropout(self.dropout_rate, deterministic=deterministic)(x)
+        return x
 
 
 class UpSample(nn.Module):
@@ -76,6 +99,30 @@ class UpSample(nn.Module):
         x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
         x = nn.Dropout(self.dropout_rate, deterministic=deterministic)(x)
         return x
+    
+
+class AttnUpSample(nn.Module):
+    features: int
+    kernel_size: Tuple[int] = (3, 3)
+    strides: Tuple[int] = (2, 2)
+    num_groups: int = 8
+    scale: int = 2
+    method: str = 'nearest'
+    dropout_rate: float = 0.0
+    num_heads: int = 8
+    attention_features: int = 256
+
+    @nn.compact
+    def __call__(self, x, skip, temb, deterministic=True):
+        x = jnp.concatenate([x, skip], axis=-1)
+        new_shape = (x.shape[1] * self.scale, x.shape[2] * self.scale)
+        x = resize(x, shape=(x.shape[0], *new_shape, x.shape[-1]), method=self.method)
+        x = nn.Conv(features=self.features, kernel_size=self.kernel_size)(x)
+        x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
+        x += nn.MultiHeadDotProductAttention(num_heads=self.num_heads, qkv_features=self.attention_features)(x)
+        x = ResNetBlock(features=self.features, kernel_size=self.kernel_size, num_groups=self.num_groups)(x, temb)
+        x = nn.Dropout(self.dropout_rate, deterministic=deterministic)(x)
+        return x
 
 
 class Network(nn.Module):
@@ -83,18 +130,18 @@ class Network(nn.Module):
     strides: Tuple[int] = (2, 2)
     window_shape: Tuple[int] = (2, 2)
     num_groups: int = 8
-    features: Tuple[int] = (128, 128, 256, 256)
+    features: Tuple[int] = (64, 128, 256, 256)
     dropout_rate: float = 0.0
-    attention_features: int = 256
+    attention_features: int = 64
     num_heads: int = 8
-    imin: float = 0.002
-    imax: float = 80.0
     embedding_dim: int = 16
+    imin: int = 1
+    imax: int = 10000
     
     def setup(self):
         # Downsample layers
-        self.downsample1 = DownSample(features=self.features[0], kernel_size=self.kernel_size, strides=self.strides)
-        self.downsample2 = DownSample(features=self.features[1], kernel_size=self.kernel_size, strides=self.strides)
+        self.downsample1 = AttnDownSample(features=self.features[0], kernel_size=self.kernel_size, strides=self.strides)
+        self.downsample2 = AttnDownSample(features=self.features[1], kernel_size=self.kernel_size, strides=self.strides)
         self.downsample3 = DownSample(features=self.features[2], kernel_size=self.kernel_size, strides=self.strides)
         self.downsample4 = DownSample(features=self.features[3], kernel_size=self.kernel_size, strides=self.strides)
         
@@ -102,8 +149,8 @@ class Network(nn.Module):
         self.attention = nn.MultiHeadDotProductAttention(num_heads=self.num_heads, qkv_features=self.attention_features)
         
         # Upsampling layers
-        self.upsample1 = UpSample(features=self.features[-1], kernel_size=self.kernel_size, strides=self.strides)
-        self.upsample2 = UpSample(features=self.features[-2], kernel_size=self.kernel_size, strides=self.strides)
+        self.upsample1 = AttnUpSample(features=self.features[-1], kernel_size=self.kernel_size, strides=self.strides)
+        self.upsample2 = AttnUpSample(features=self.features[-2], kernel_size=self.kernel_size, strides=self.strides)
         self.upsample3 = UpSample(features=self.features[-3], kernel_size=self.kernel_size, strides=self.strides)
         self.upsample4 = UpSample(features=self.features[-4], kernel_size=self.kernel_size, strides=self.strides)
         
@@ -112,9 +159,9 @@ class Network(nn.Module):
         
 
     @nn.compact
-    def __call__(self, x, t, is_training=False):
+    def __call__(self, x, t, c, is_training=False):
         # Time embedding
-        embedding = SinusoidalPositionalEmbedding(embedding_dim=self.embedding_dim)(t)
+        embedding = get_sinusoidal_embeddings_ddpm(t, self.embedding_dim, max_positions=10000)
         temb = nn.Dense(features=2*self.embedding_dim)(embedding)
         temb = nn.silu(temb)
         temb = nn.Dense(features=2*self.embedding_dim)(temb)

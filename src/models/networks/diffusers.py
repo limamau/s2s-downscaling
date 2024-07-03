@@ -109,7 +109,7 @@ class Network(nn.Module):
         # Output
         self.conv_norm_out = nn.GroupNorm(num_groups=self.norm_num_groups)
         self.conv_act = nn.silu
-        self.conv_out = nn.Conv(self.features[0], self.kernel_size, padding='SAME')
+        self.conv_out = nn.Conv(1, self.kernel_size, padding='SAME')
 
     def __call__(self, x, i, c, is_training=False):
         # Noise (time) embedding
@@ -128,7 +128,7 @@ class Network(nn.Module):
         # Middle
         # context is being passed as None, so the hidden states will be used instead (self-attention)
         # this can be a nice window to use topography and/or soil moisture as context
-        x = self.mid_block(x, iemb, None, deterministic=not is_training)
+        x = self.mid_block(x, iemb, c, deterministic=not is_training)
 
         # Upsample
         for up_block in self.up_blocks:

@@ -6,10 +6,11 @@ import jax.numpy as jnp
 from flax.training.train_state import TrainState
 from functools import partial
 
-from utils import batch_mul, create_folder, process_data
+from utils import batch_mul, create_folder, process_data, get_spatial_lengths
 from .writing import Writer
 from .checkpointing import Checkpointer
 from models.consistency_model import ConsistencyModel
+from evaluation.evaluate import evaluate_model
 
 
 @partial(jax.jit, static_argnums=(0,))
@@ -88,7 +89,17 @@ def train(experiment):
     
     # Logs and checkpoints
     create_folder(experiment_dir, overwrite=True)
-    writer = Writer(experiment_dir, csv_args=["train_loss", "N", "mu"])
+    writer = Writer(
+        experiment_dir, 
+        csv_args=[
+            "train_loss",
+            "N",
+            "mu",
+            "psd_distance",
+            "cdf_distance",
+            "pss",
+        ]
+    )
     writer.log_and_save_config(experiment)
     writer.log_device()
     ckpter = Checkpointer(experiment_dir)
@@ -99,8 +110,7 @@ def train(experiment):
     num_blocks = 4  # FIXME: hard coded
     Ny -= Ny % 2**(num_blocks)
     Nx -= Nx % 2**(num_blocks)
-    Nt -= Nt % batch_size
-    data = data[:Nt, :Ny, :Nx, :]
+    data = data[:, :Ny, :Nx, :]
     
     # Normalization
     data, dataset_mean, dataset_std = process_data(data, None, None, norm_mean, norm_std, is_log_transforming)
@@ -114,8 +124,10 @@ def train(experiment):
     rng, idx_rng = jax.random.split(rng, 2)
     jax.random.permutation(idx_rng, indices, independent=True)
     r = 1 - validation_ratio
-    training_indices = indices[:int(r * Nt)]
-    validation_indices = indices[int(r * Nt):]
+    training_indices = indices[:int(r*Nt)]
+    validation_indices = indices[int(r*Nt):]
+    Nt = int(r*Nt)
+    Nt -= Nt % batch_size
     train_data = data[training_indices]
     val_data = data[validation_indices]
     if conditions is not None:
@@ -147,6 +159,13 @@ def train(experiment):
             None,
         )
     
+    # last_checkpoint_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/s2s-downscaling/examples/cpc_era5_wrf/consistency_model/experiments/diffusers_jj"
+    # last_ckpter = Checkpointer(last_checkpoint_dir)
+    # latest_step = last_ckpter.manager.latest_step()
+    # print("Latest step:", latest_step)
+    # restored = last_ckpter.manager.restore(latest_step)
+    # online_params = restored['params']
+    
     target_params = online_params
     writer.log_params(online_params)
     
@@ -158,7 +177,7 @@ def train(experiment):
     state = TrainState.create(
         apply_fn=net.apply, 
         params=online_params, 
-        tx=opt
+        tx=opt,
     )
     
     # Losses and its index
@@ -171,23 +190,25 @@ def train(experiment):
             # Iteration index (based on last batch)
             end_idx = start_idx + batch_size
             k = epoch * Nt + end_idx
-            idx = indices[start_idx:end_idx]
             
-            x = train_data[idx, :, :, :]
+            current_N = N(k)
+            current_mu = mu(k)
+            
+            x = train_data[start_idx:end_idx, :, :, :]
             if train_conditions is not None:
-                c = train_conditions[idx, :, :, :]
+                c = train_conditions[start_idx:end_idx, :, :]
             else:
                 c = None
             
             # Sampling
             rng, i_rng, z_rng, dropout_rng = jax.random.split(rng, 4)
-            i = jax.random.randint(i_rng, (batch_size,), 1, N(k))
+            i = jax.random.randint(i_rng, (batch_size,), 1, current_N)
             z = jax.random.normal(z_rng, (batch_size, Ny, Nx, 1))
             
-            # Get times (noises) and noised images
-            online_noise = noise_schedule(i + 1, N(k))
+            # Get noises and noised images
+            online_noise = noise_schedule(i + 1, current_N)
             x_online = x + batch_mul(online_noise, z)
-            target_noise = noise_schedule(i, N(k))
+            target_noise = noise_schedule(i, current_N)
             x_target = x + batch_mul(target_noise, z)
             
             # Loss weight
@@ -197,19 +218,17 @@ def train(experiment):
             loss, state, target_params = train_step(
                 cm,
                 loss_weight,
-                mu(k),
+                current_mu,
                 dropout_rng,
                 state,
                 target_params,
-                x_online, online_noise, i + 1,
+                x_online, online_noise, i+1,
                 x_target, target_noise, i,
                 c,
             )
             losses[loss_idx % log_each] = loss
             loss_idx += 1
             
-            
-            # TODO: build a proper validation pipeline
             if k % log_each != 0:
                 continue
             
@@ -217,16 +236,33 @@ def train(experiment):
             avg_loss = np.mean(losses)
             losses = np.zeros(log_each, dtype=np.float32)
             writer.log_loss(k, avg_loss)
+            
+            # Validation score
+            psd_distance, cdf_distance, pss = evaluate_model(
+                cm,
+                noise_schedule,
+                target_params,
+                val_data,
+                val_conditions,
+                batch_size,
+                current_N,
+                current_N,
+            )
+            
+            # Write to CSV
             writer.add_csv_row(
                 k,
                 train_loss=avg_loss,
-                N=N(k),
-                mu=mu(k),
+                N=current_N,
+                mu=current_mu,
+                psd_distance=psd_distance,
+                cdf_distance=cdf_distance,
+                pss=pss,
             )
         
         # Log for epoch
         if epoch % ckpt_each == 0:
-            ckpter.save(k, state.params, state.opt_state)
+            ckpter.save(k, target_params, state.opt_state)
 
     writer.close()
     ckpter.close()

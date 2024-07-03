@@ -23,7 +23,7 @@ class Writer:
         self.logger.propagate = False
         
         # .csv
-        self.csv_file = os.path.join(path, "losses.csv")
+        self.csv_file = os.path.join(path, "output.csv")
         if csv_args is not None:
             with open(self.csv_file, 'w', newline='') as file:
                 writer = csv.writer(file)
