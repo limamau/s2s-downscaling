@@ -2,7 +2,7 @@ import os, yaml, h5py
 import optax
 import numpy as np
 
-from models.networks import diffusers, homemade, udffdb, conditional
+from models.networks import diffusers, homemade, udffdb, conditional, heavy_diffusers
 from .distances import *
 from .schedules import *
 
@@ -27,6 +27,7 @@ def _get_network(model_identifier, **kwargs):
         'homemade': homemade.Network,
         'udffdb': udffdb.Network,
         'conditional': conditional.Network,
+        'heavy_diffusers': heavy_diffusers.Network,
     }
     if model_identifier not in net_map:
         raise ValueError("Unsupported model: {}".format(model_identifier))

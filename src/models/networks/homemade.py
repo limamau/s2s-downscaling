@@ -134,7 +134,7 @@ class Network(nn.Module):
     dropout_rate: float = 0.0
     attention_features: int = 64
     num_heads: int = 8
-    embedding_dim: int = 16
+    embedding_dim: int = 256
     imin: int = 1
     imax: int = 10000
     

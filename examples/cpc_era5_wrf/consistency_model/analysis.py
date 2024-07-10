@@ -19,7 +19,7 @@ def main():
     # so bad?
     # download more common data and use more common validations
     # Experiment folder and name
-    experiment_name = "diffusers_jj"
+    experiment_name = "min-noise=0.002_1e6_80M_sigma-data=2"
     script_dir = os.path.dirname(os.path.realpath(__file__))
     experiment_dir = os.path.join(script_dir, "experiments", experiment_name)
     figs_dir = os.path.join(script_dir, "figs")
@@ -40,7 +40,7 @@ def main():
     log_transform = experiment.is_log_transforming
     norm_mean = experiment.norm_mean
     norm_std = experiment.norm_std
-    cm = ConsistencyModel(norm_std, imin, net) # this makes no sense?
+    cm = ConsistencyModel(norm_std, 1, net)
     
     # ... and the checkpoints
     ckpter = Checkpointer(experiment_dir)
@@ -55,7 +55,7 @@ def main():
     cpc_file = os.path.join(data_dir, "cpc.h5")
     with h5py.File(cpc_file, 'r') as f:
         cpc_data = f['precip'][[time],:,:]
-    era5_file = os.path.join(data_dir, "era5_qm_point.h5")
+    era5_file = os.path.join(data_dir, "era5_qm_all.h5")
     with h5py.File(era5_file, 'r') as f:
         era5_data = f['precip'][[time],:,:]
         era5_lons = f['longitude'][:]
@@ -81,11 +81,11 @@ def main():
     
     # Add noises
     x = input_data[[0],:Ny,:Nx,:]
-    imax_at_the_step = 1280 # FIXME: hard coded
-    paired_i = 530
+    imax_at_the_step = 1280
+    paired_i = 500
     paired_noise = noise_schedule(paired_i, imax_at_the_step)
     print("Paired noise:", paired_noise)
-    unpaired_i = 830
+    unpaired_i = 500
     unpaired_noise = noise_schedule(unpaired_i, imax_at_the_step)
     print("Unpaired noise:", unpaired_noise)
     
@@ -99,9 +99,9 @@ def main():
         None,
         1,
         imax_at_the_step,
-        unpaired_i,
+        paired_i,
         1,
-        num_steps=4,
+        num_steps=1,
     )
     unpaired_output = multi_step_sampling(
         cm,
@@ -114,7 +114,7 @@ def main():
         imax_at_the_step,
         unpaired_i,
         1,
-        num_steps=1,
+        num_steps=4,
     )
     
     # Restore normalizations
@@ -153,8 +153,8 @@ def main():
     )
     titles = (
         "input",
-        "i={}".format(paired_i),
-        "i={}".format(unpaired_i),
+        "num steps={}".format(1),
+        "num steps={}".format(2),
         "ground truth"
     )
     extents = (extent, extent, extent, extent)

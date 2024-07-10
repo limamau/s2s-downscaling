@@ -1,12 +1,12 @@
 # Experiment
-experiment_name: diffusers_jj_2
+experiment_name: debug
 
 # Data from preprocessing
 max_len: 5000 # maximum number of images to load
-validation_ratio: 0.02 # this will get a set of random images by default
+validation_ratio: 0.002 # this will get a set of random images by default
 
-# Network to be used by the CM [diffusers, homemade, udffdb, conditional]
-network: diffusers
+# Network to be used by the CM [diffusers, homemade, udffdb, conditional, heavy_diffusers]
+network: heavy_diffusers
 main_variables: [precip]
 conditional_variables: # [hours, months]
 
@@ -22,7 +22,7 @@ loss_weight: True # whether or nor to use the lambda schedule
 # Optimizer
 optimizer: radam
 
-# Hyperparameters (close to Song et al. 2023 for LSUN 256x256)
+# Hyperparameters
 learning_rate: 1e-6
 batch_size: 1
 min_noise: 0.002
@@ -40,7 +40,7 @@ EMA_decay_rate: 0.9999 # EMA decay rating for the online network
 # Normalizations
 log_transform: True # log-transform the data before training
 norm_mean: 0.0
-norm_std: 0.5
+norm_std: 2.0
 
 # Logging and checkpointing
 log_each: 1000

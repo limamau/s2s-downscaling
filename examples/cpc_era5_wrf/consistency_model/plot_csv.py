@@ -8,7 +8,7 @@ from utils import create_folder
 def main():
     # Experiments
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    experiment_names = ["diffusers_jj"]
+    experiment_names = ["diffusers_fourier", "min-noise=1_1e6_40M_sigma-data=0.5", "min-noise=1_1e6_40M_sigma-data=2", "min-noise=0.002_1e6_80M_sigma-data=2"]
     variables = ["train_loss", "psd_distance", "cdf_distance", "pss"]
     
     # Plotting

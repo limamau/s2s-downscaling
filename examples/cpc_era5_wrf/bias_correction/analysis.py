@@ -1,6 +1,5 @@
 import os, h5py
-from matplotlib import pyplot as plt
-from evaluation.plots import plot_psds, plot_maps
+from evaluation.plots import *
 from utils import get_spatial_lengths
 
 def main():
@@ -28,14 +27,25 @@ def main():
     script_dir = os.path.dirname(os.path.realpath(__file__))
     figs_dir = os.path.join(script_dir, "figs")
     x_length, y_length = get_spatial_lengths(lons, lats)
+    cmap = CURVE_CMAP
+    colors = (cmap(6), cmap(5), cmap(2))
     fig, _ = plot_psds(
         (era5_qm_all, era5_qm_point, cpc),
         ("QM (all)", "QM (point-to-point)", "CombiPrecip"),
         ((x_length, y_length), (x_length, y_length), (x_length, y_length)),
+        colors=colors,
         min_threshold=1e-10,
         lambda_star=680,
     )
     fig.savefig(os.path.join(figs_dir, "psd.png"))
+    
+    # Plot PP
+    fig, _ = plot_pp(
+        (era5_qm_all, era5_qm_point, cpc),
+        ("QM (all)", "QM (point-to-point)", "CombiPrecip"),
+        colors=colors,
+    )
+    fig.savefig(os.path.join(figs_dir, "pp.png"))
     
     # Plot maps comparison
     time = -10

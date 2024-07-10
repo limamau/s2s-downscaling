@@ -7,6 +7,7 @@ import math
 
 from diffusers.models.embeddings_flax import get_sinusoidal_embeddings, FlaxTimestepEmbedding
 from diffusers.models.unets.unet_2d_blocks_flax import FlaxDownBlock2D, FlaxUpBlock2D, FlaxUNetMidBlock2DCrossAttn
+from diffusers.models.unets.unet_2d_blocks_flax import FlaxCrossAttnDownBlock2D, FlaxCrossAttnUpBlock2D
 
 
 # The following function is ported over from the DDPM codebase:
@@ -48,51 +49,58 @@ class GaussianFourierProjection(nn.Module):
     
 
 class Network(nn.Module):
-    features: Tuple[int] = (64, 128, 256, 512)
+    features: Tuple[int] = (32, 64, 128, 256)
     kernel_size = (3,3)
-    layers_per_block: int = 2
+    layers_per_block: int = 1
     dropout_rate: float = 0.0
-    attention_heads: int = 8
-    norm_num_groups: int = 32
+    attention_heads: int = 1
+    norm_num_groups: int = 16
     scale: float = 0.02
     iemb_dim: int = 256
     imin: float = 1
     imax: float = 120
 
     def setup(self):
-        # Noise (time) embedding
-        # self.iproj = lambda i: get_sinusoidal_embeddings(
-        #     i,
-        #     embedding_dim=self.features[0],
-        #     min_timescale=self.imin,
-        #     max_timescale=self.imax,
-        #     scale=1.0,
-        # )
-        # self.iproj = lambda i: get_sinusoidal_embeddings_ddpm(
-        #     i,
-        #     embedding_dim=self.features[0],
-        # )
+        # Noise embedding
         self.iproj = GaussianFourierProjection(self.iemb_dim, self.scale)
         self.iemb = FlaxTimestepEmbedding(self.iemb_dim)
+        
+        # Print self fields:
         
         # Input
         self.conv_in = nn.Conv(self.features[0], self.kernel_size, padding='SAME')
 
         # Downsample
         down_blocks = []
-        for i in range(4):
-            input_channel = self.features[i-1] if i > 0 else self.features[0]
-            output_channel = self.features[i]
-            is_final_block = i == 3
-
-            down_block = FlaxDownBlock2D(
-                in_channels=input_channel,
-                out_channels=output_channel,
-                dropout=self.dropout_rate,
-                num_layers=self.layers_per_block,
-                add_downsample=not is_final_block,
-            )
+        for b in range(4):
+            input_channel = self.features[b-1] if b > 0 else self.features[0]
+            output_channel = self.features[b]
+            is_final_block = b == 3
+            
+            if b!=3:
+                down_block = FlaxDownBlock2D(
+                    in_channels=input_channel,
+                    out_channels=output_channel,
+                    dropout=self.dropout_rate,
+                    num_layers=self.layers_per_block,
+                    add_downsample=not is_final_block,
+                )
+            else:
+                down_block = FlaxCrossAttnDownBlock2D(
+                    in_channels=input_channel,
+                    out_channels=output_channel,
+                    dropout=self.dropout_rate,
+                    num_layers=self.layers_per_block,
+                    add_downsample=not is_final_block,
+                    num_attention_heads=self.attention_heads,
+                    use_linear_projection=False, # default
+                    use_memory_efficient_attention=False, # default
+                    split_head_dim=True, # to speed up
+                    transformer_layers_per_block=1, # default
+                )
+            
             down_blocks.append(down_block)
+            
         self.down_blocks = down_blocks
 
         # Middle
@@ -109,20 +117,36 @@ class Network(nn.Module):
 
         # Upsample
         up_blocks = []
-        for i in range(4):
-            input_channel = self.features[3-i]
-            output_channel = self.features[2-i] if i < 3 else self.features[0]
-            is_final_block = i == 3
-
-            up_block = FlaxUpBlock2D(
-                in_channels=input_channel,
-                out_channels=output_channel,
-                prev_output_channel=self.features[3-i-1],
-                dropout=self.dropout_rate,
-                num_layers=self.layers_per_block,
-                add_upsample=not is_final_block,
-            )
+        for b in range(4):
+            input_channel = self.features[3-b]
+            output_channel = self.features[2-b] if b < 3 else self.features[0]
+            is_final_block = b == 3
+            
+            if b!=0:
+                up_block = FlaxUpBlock2D(
+                    in_channels=input_channel,
+                    out_channels=output_channel,
+                    prev_output_channel=self.features[3-b-1],
+                    dropout=self.dropout_rate,
+                    num_layers=self.layers_per_block,
+                    add_upsample=not is_final_block,
+                )
+            else:
+                up_block = FlaxCrossAttnUpBlock2D(
+                    in_channels=input_channel,
+                    out_channels=output_channel,
+                    prev_output_channel=self.features[3-b-1],
+                    dropout=self.dropout_rate,
+                    num_layers=self.layers_per_block,
+                    add_upsample=not is_final_block,
+                    num_attention_heads=self.attention_heads,
+                    use_linear_projection=False, # default
+                    use_memory_efficient_attention=False, # default
+                    split_head_dim=True, # to speed up
+                    transformer_layers_per_block=1, # default
+                )
             up_blocks.append(up_block)
+            
         self.up_blocks = up_blocks
 
         # Output
@@ -131,7 +155,7 @@ class Network(nn.Module):
         self.conv_out = nn.Conv(1, self.kernel_size, padding='SAME')
 
     def __call__(self, x, i, c, is_training=False):
-        # Noise (time) embedding
+        # Noise embedding
         iemb = self.iproj(i)
         iemb = self.iemb(iemb)
 
@@ -140,8 +164,11 @@ class Network(nn.Module):
 
         # Downsample
         down_block_residuals = (x,)
-        for down_block in self.down_blocks:
-            x, residuals = down_block(x, iemb, deterministic=not is_training)
+        for b, down_block in enumerate(self.down_blocks):
+            if b!=3:
+                x, residuals = down_block(x, iemb, deterministic=not is_training)
+            else:
+                x, residuals = down_block(x, iemb, c, deterministic=not is_training)
             down_block_residuals += residuals
 
         # Middle
@@ -150,10 +177,13 @@ class Network(nn.Module):
         x = self.mid_block(x, iemb, c, deterministic=not is_training)
 
         # Upsample
-        for up_block in self.up_blocks:
+        for b, up_block in enumerate(self.up_blocks):
             residuals = down_block_residuals[-(self.layers_per_block+1):]
             down_block_residuals = down_block_residuals[:-(self.layers_per_block+1)]
-            x = up_block(x, residuals, iemb, deterministic=not is_training)
+            if b!=0:
+                x = up_block(x, residuals, iemb, deterministic=not is_training)
+            else:
+                x = up_block(x, residuals, iemb, c, deterministic=not is_training)
 
         # Output
         x = self.conv_norm_out(x)
@@ -161,3 +191,4 @@ class Network(nn.Module):
         x = self.conv_out(x)
         
         return x
+

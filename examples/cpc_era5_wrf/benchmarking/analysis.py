@@ -81,7 +81,7 @@ def print_metrics(reference, forecasts, unit):
             print("  - {}: {:.3f}".format(forecast['name'], value))
         print("\n")
 
-def main(data_dir, filenames, time_index, Nx, Ny, plot_times):
+def main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls):
     # Load and preprocess data
     data = load_data(data_dir, filenames)
     data = preprocess_data(data, time_index, Nx, Ny)
@@ -120,13 +120,17 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_times):
     # Plot CDFs
     arrays = [data[key]['precip'] for key in filenames.keys()]
     labels = list(filenames.keys())
-    fig, _ = plot_cdfs(arrays, labels)
+    fig, _ = plot_cdfs(arrays, labels, colors=colors, ls=ls)
     fig.savefig(os.path.join(figs_dir, "cdf_comparison.png"))
 
     # Plot PSDs
     spatial_lengths = [(x_length, y_length) for _ in range(len(arrays))]
-    fig, _ = plot_psds(arrays, labels, spatial_lengths, min_threshold=1e-10)
+    fig, _ = plot_psds(arrays, labels, spatial_lengths, min_threshold=1e-10, colors=colors, ls=ls, lambda_star=680)
     fig.savefig(os.path.join(figs_dir, "psd_comparison.png"))
+    
+    # Plot PP
+    fig, _ = plot_pp(arrays, labels, colors=colors, ls=ls)
+    fig.savefig(os.path.join(figs_dir, "pp_comparison.png"))
     
     reference = forecasts.pop(2)  # Assuming the first item is the reference
 
@@ -137,19 +141,45 @@ if __name__ == "__main__":
     data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
     filenames = {
         "ERA5 (nearest)": "era5_nearest.h5",
+        ####### "ERA5 (interpolated)": "era5_interpolated.h5",
         "ERA5 (low-pass)": "era5_low-pass.h5",
         "CombiPrecip": "cpc.h5",
         "WRF": "wrf.h5",
         "QM (all)": "era5_qm_all.h5",
         "QM (point)": "era5_qm_point.h5",
-        "CM (all) - 2 steps": "cm_qm_all_2.h5",
-        "CM (all) - 4 steps": "cm_qm_all_4.h5",
-        "CM (point) - 2 steps": "cm_qm_point_2.h5",
-        "CM (point) - 4 steps": "cm_qm_point_4.h5",
+        # "CM (all) - 2 steps": "cm_qm_all_2.h5",
+        # "CM (point) - 2 steps": "cm_qm_point_2.h5",
+        "CM (all)": "cm_qm_all_4.h5",
+        "CM (point)": "cm_qm_point_4.h5",
     }
     time_index = slice(0, 48)
     Nx = 336
     Ny = 224
     plot_times = [0, 8, 16, 24, 32, 38]
+    cmap = CURVE_CMAP
+    colors = (
+        cmap(0),
+        cmap(1),
+        cmap(2),
+        cmap(3),
+        cmap(6),
+        cmap(5),
+        cmap(6),
+        cmap(5),
+        # cmap(6),
+        # cmap(5),
+    )
+    ls = (
+        '-',
+        '-',
+        '-',
+        '-',
+        '-',
+        '-',
+        # ':',
+        # ':',
+        '--',
+        '--',
+    )
 
-    main(data_dir, filenames, time_index, Nx, Ny, plot_times)
+    main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls)

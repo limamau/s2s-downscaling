@@ -187,7 +187,7 @@ def plot_maps(
     vmin=None,
     vmax=None,
     cbar_label='Precipitation (mm/h)',
-    figsize=(8, 4)
+    dpi=300
 ):
     """
     General function to plot any even number of maps.
@@ -203,62 +203,77 @@ def plot_maps(
     - vmin (int, optional): minimum value for colormap. Default is None. Use it if norm is None.
     - vmax (int, optional): maximum value for colormap. Default is None. Use it if norm is None.
     - cbar_label (str, optional): label for the colorbar. Default is 'Precipitation (mm/h)'.
-    - figsize (tuple, optional): figure size. Default is (8, 4).
 
     ## Returns:
     - fig (matplotlib figure object)
     - axs (matplotlib axes object)
     """
+    # Check number of plots
     n_plots = len(arrays)
     if n_plots % 2 != 0:
         raise ValueError("Number of arrays must be even.")
 
+    # Figure size
+    figsize = (8, 3.3)
     n_rows = n_plots // 2
-    fig_height = figsize[1] * (n_rows / 2)
+    fig_height = figsize[1] * n_rows/2
     fig_width = figsize[0]
     
     # Create figure with a consistent space for the colorbar
-    fig = plt.figure(figsize=(fig_width, fig_height), dpi=300)
+    fig, axes = plt.subplots(
+        n_rows, 2,
+        figsize=(fig_width, fig_height),
+        dpi=500,
+        subplot_kw={'projection': ccrs.PlateCarree()},
+    )
     
-    # Create a gridspec that reserves space for the colorbar
-    gs = fig.add_gridspec(n_rows, 3, width_ratios=[1, 1, 0.05], wspace=0.1, hspace=0.3)
-
-    axs = []
-    projections = projections or [ccrs.PlateCarree()] * n_plots
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    
+    projections = projections or (ccrs.PlateCarree(),) * n_plots
     
     if axis_labels is None:
         axis_labels = [(None, None)] * n_plots
         for i in range(n_plots):
-            if i % 2 == 0:  # Left column
+            if i % 2 == 0:
                 axis_labels[i] = (None, "lat")
-            if i >= n_plots - 2:  # Bottom row
+            if i >= n_plots - 2:
                 axis_labels[i] = ("lon", axis_labels[i][1])
 
-    for i in range(n_plots):
-        row = i // 2
-        col = i % 2
-        ax = fig.add_subplot(gs[row, col], projection=projections[i])
-        img = ax.imshow(
-            arrays[i],
-            origin='lower', 
-            extent=extents[i], 
-            transform=projections[i],
-            cmap=cmap,
-            norm=norm,
-            vmin=vmin, 
-            vmax=vmax,
-        )
-        ax.add_feature(cfeature.BORDERS)
-        ax.set_title(titles[i])
-        ax.set_frame_on(False)
-        _write_label(ax, axis_labels[i])
-        axs.append(ax)
-
+    for i, ax in enumerate(axes.flat):
+        if i < n_plots:
+            img = ax.imshow(
+                arrays[i],
+                origin='lower',
+                extent=extents[i],
+                transform=projections[i],
+                cmap=cmap,
+                norm=norm,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.add_feature(cfeature.BORDERS)
+            if titles[i] is not None:
+                ax.set_title(titles[i])
+            ax.set_frame_on(False)
+            _write_label(ax, axis_labels[i])
+        else:
+            ax.axis('off')
+    
+    fig.subplots_adjust(
+        left=0.1,
+        right=0.85,
+        bottom=0.03,
+        top=1.03,
+        wspace=0.1,
+        hspace=-0.2,
+    )
+    
     # Create a single axis for the colorbar
-    cbar_ax = fig.add_subplot(gs[n_rows//2-1:n_rows//2+1, -1])
+    cbar_ax = fig.add_axes([0.89, 0.5-0.5/n_rows, 0.02, 1/n_rows])
     fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
-    return fig, axs
+    return fig, axes
 
 
 def plot_cdfs(
@@ -266,6 +281,7 @@ def plot_cdfs(
     labels,
     n_quantiles=100,
     colors=None,
+    ls=None,
     cmap=CURVE_CMAP,
     xlim_max=60,
 ):
@@ -277,7 +293,8 @@ def plot_cdfs(
     - labels (tuple of str): tuple of labels for the arrays. Should match the length of arrays.
     - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
     - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
-    - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
+    - ls (tuple of str, optional): tuple of linestyles for each plot. If provided, should match the length of arrays.
+    - cmap (str, optional): colormap to use for plotting. Default is a custom colormap.
     - xlim_max (float, optional): maximum value for the x-axis. Default is 60.
 
     ## Returns:
@@ -287,12 +304,20 @@ def plot_cdfs(
     if len(arrays) != len(labels):
         raise ValueError("The number of arrays and labels must be the same.")
     
+    # Colors
     if colors is not None:
         if len(colors) != len(arrays):
             raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
+        
+    # Linestyle
+    if ls is not None:
+        if len(ls) != len(arrays):
+            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+    else:
+        ls = ('-',) * len(arrays)
     
     cmap = plt.get_cmap(cmap)
     global_max = max(np.nanmax(arr) for arr in arrays)
@@ -303,9 +328,9 @@ def plot_cdfs(
 
     cdfs = [get_cdf(arr, bins) for arr in arrays]
     
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(6, 4))
     for i, (cdf, label) in enumerate(zip(cdfs, labels)):
-        ax.plot(bins, cdf, label=label, color=colors[i])
+        ax.plot(bins, cdf, label=label, color=colors[i], ls=ls[i])
     
     ax.set_frame_on(False)
     ax.grid(True, which='both', ls='--', alpha=0.5)
@@ -316,8 +341,9 @@ def plot_cdfs(
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
     ax.get_xaxis().set_tick_params(which='both', color='white')
     ax.get_yaxis().set_tick_params(which='both', color='white')
-    ax.legend()
+    ax.legend(fontsize='large')
     plt.xlim(0, xlim_max)
+    plt.tight_layout()
     
     return fig, ax
 
@@ -331,6 +357,7 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     - labels (tuple of str): tuple of labels for the arrays. Should match the length of arrays.
     - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
     - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    - ls (tuple of str, optional): tuple of linestyles for each plot. If provided, should match the length of arrays.
     - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
 
     ## Returns:
@@ -340,12 +367,20 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     if len(arrays) != len(labels):
         raise ValueError("The number of arrays and labels must be the same.")
     
+    # Colors
     if colors is not None:
         if len(colors) != len(arrays):
             raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
+        
+    # Linestyle
+    if ls is not None:
+        if len(ls) != len(arrays):
+            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+    else:
+        ls = ('-',) * len(arrays)
     
     global_max = max(np.nanmax(arr) for arr in arrays)
     global_min = min(np.nanmin(arr) for arr in arrays)
@@ -359,7 +394,7 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
         pdf = get_pdf(arr, bins)
         bin_centers = (bins[:-1] + bins[1:]) / 2  # Get the center of each bin
         
-        ax.plot(bin_centers, pdf, label=label, color=colors[i])
+        ax.plot(bin_centers, pdf, label=label, color=colors[i], ls=ls[i])
     
     ax.set_xlabel('Precipitation (mm/h)')
     ax.set_ylabel('PDF')
@@ -367,6 +402,67 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     plt.xlim(global_min, 60)
     
     return fig, ax
+
+
+def plot_pp(arrays, labels, n_quantiles=100, colors=None, ls=None, cmap=CURVE_CMAP):
+    """
+    Plot the precipitation intensity distribution of multiple arrays.
+
+    ## Parameters:
+    - arrays (tuple of arrays): tuple of arrays to plot for.
+    - labels (tuple of str): tuple of labels for the arrays. Should match the length of arrays.
+    - n_quantiles (int, optional): number of quantiles to divide the data into. Default is 100.
+    - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    - ls (tuple of str, optional): tuple of linestyles for each plot. If provided, should match the length of arrays.
+    - cmap (str, optional): colormap to use for plotting (default: custom colormap)
+
+    ## Returns:
+    - fig (matplotlib figure object)
+    - ax (matplotlib axis object)
+    """
+    if len(arrays) != len(labels):
+        raise ValueError("The number of arrays and labels must be the same.")
+    
+    # Colors
+    if colors is not None:
+        if len(colors) != len(arrays):
+            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+    else:
+        cmap = plt.get_cmap(cmap)
+        colors = [cmap(i) for i in range(len(arrays))]
+        
+    # Linestyle
+    if ls is not None:
+        if len(ls) != len(arrays):
+            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+    else:
+        ls = ('-',) * len(arrays)
+    
+    global_max = max(np.nanmax(arr) for arr in arrays)
+    global_min = max(min(np.nanmin(arr) for arr in arrays), 0)  # Ensure non-negative
+    
+    wide = abs(global_max - global_min) / n_quantiles
+    bins = np.arange(global_min, global_max + wide, wide)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for i, (arr, label) in enumerate(zip(arrays, labels)):
+        pdf = get_pdf(arr, bins)
+        bin_centers = (bins[:-1] + bins[1:]) / 2  # Get the center of each bin
+        
+        # Calculate precipitation intensity distribution
+        precip_intensity_dist = pdf * bin_centers
+        
+        ax.plot(bin_centers, precip_intensity_dist, label=label, color=colors[i], ls=ls[i])
+    
+    ax.set_xlabel('Precipitation (mm/h)')
+    ax.set_ylabel('Precipitation Intensity Distribution (mm/h)')
+    ax.legend()
+    # ax.set_xscale('log')
+    plt.xlim(max(global_min, 0.1), 20)
+    
+    return fig, ax
+
     
     
 def plot_psds(
@@ -376,6 +472,7 @@ def plot_psds(
     min_threshold=None,
     max_threshold=None,
     colors=None,
+    ls=None,
     cmap=CURVE_CMAP,
     lambda_star=None,
 ):
@@ -387,6 +484,7 @@ def plot_psds(
     - labels (tuple of str): tuple of labels for the data arrays. Should match the length of arrays.
     - spatial_lengths (tuple of tuples): tuple of (x_length, y_length) tuples for each data array. Should match the length of arrays.
     - colors (tuple of str, optional): tuple of colors for each plot. If provided, should match the length of arrays.
+    - ls (tuple of str, optional): tuple of linestyles for each plot. If provided, should match the length of arrays.
     - min_threshold (float, optional): minimum threshold value to mask out low PSD values
     - max_threshold (float, optional): maximum threshold value to mask out high PSD values
     - cmap (str, optional): colormap to use for plotting (default: 'Dark2')
@@ -399,14 +497,22 @@ def plot_psds(
     if len(arrays) != len(labels) or len(arrays) != len(spatial_lengths):
         raise ValueError("The number of data arrays, labels, and spatial lengths must be the same.")
     
+    # Colors
     if colors is not None:
         if len(colors) != len(arrays):
             raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
+        
+    # Linestyle
+    if ls is not None:
+        if len(ls) != len(arrays):
+            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+    else:
+        ls = ('-',) * len(arrays)
     
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 4))
 
     for i, (data, label, (x_length, y_length)) in enumerate(zip(arrays, labels, spatial_lengths)):
         wavelengths, psd = get_psd(data, x_length, y_length)
@@ -419,9 +525,9 @@ def plot_psds(
         if max_threshold is not None:
             mask &= (psd <= max_threshold)
         
-        plt.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i])
+        plt.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i], ls=ls[i])
         
-    ax.legend(fontsize='large')
+    # ax.legend(fontsize='large')
         
     if lambda_star is not None:
         ax.axvline(lambda_star, color='black', linestyle='--', label=r'$\lambda^*$')
@@ -435,6 +541,7 @@ def plot_psds(
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
     ax.get_xaxis().set_tick_params(which='both', color='white')
     ax.get_yaxis().set_tick_params(which='both', color='white')
+    plt.tight_layout()
     
     return fig, ax
 
