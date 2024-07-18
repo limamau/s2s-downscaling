@@ -1,7 +1,7 @@
 import os
 
 from generative.training.experiment import Experiment
-from generative.consistency_training import train
+from generative.diffusion_training import train
 
  
 def main():

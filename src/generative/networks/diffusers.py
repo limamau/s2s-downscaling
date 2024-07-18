@@ -1,5 +1,6 @@
+from jax import Array
 from typing import Tuple
-import jax
+from collections.abc import Callable
 from flax import linen as nn
 
 import jax.numpy as jnp
@@ -31,20 +32,37 @@ def get_sinusoidal_embeddings_ddpm(timesteps, embedding_dim, max_positions=10000
 # https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/unets/unet_2d.py
 # but using the blocks unet_2d_blocks_flax.py and some modifications
 
-class GaussianFourierProjection(nn.Module):
-    """Gaussian Fourier embeddings for noise levels."""
+class FourierEmbedding(nn.Module):
+  """Fourier embedding."""
 
-    embedding_size: int = 256
-    scale: float = 1.0
+  dims: int = 64
+  max_freq: float = 2e4
+  projection: bool = True
+  act_fun: Callable[[Array], Array] = nn.swish
+  dtype: jnp.dtype = jnp.float32
+  param_dtype: jnp.dtype = jnp.float32
 
-    @nn.compact
-    def __call__(self, x):
-        W = self.param(
-            "W", jax.nn.initializers.normal(stddev=self.scale), (self.embedding_size,)
-        )
-        W = jax.lax.stop_gradient(W)
-        x_proj = x[:, None] * W[None, :] * 2 * jnp.pi
-        return jnp.concatenate([jnp.sin(x_proj), jnp.cos(x_proj)], axis=-1)
+  @nn.compact
+  def __call__(self, x: Array) -> Array:
+    assert x.ndim == 1
+    logfreqs = jnp.linspace(0, jnp.log(self.max_freq), self.dims // 2)
+    x = jnp.pi * jnp.exp(logfreqs)[None, :] * x[:, None]
+    x = jnp.concatenate([jnp.sin(x), jnp.cos(x)], axis=-1)
+
+    if self.projection:
+      x = nn.Dense(
+          features=2 * self.dims,
+          dtype=self.dtype,
+          param_dtype=self.param_dtype,
+      )(x)
+      x = self.act_fun(x)
+      x = nn.Dense(
+          features=self.dims,
+          dtype=self.dtype,
+          param_dtype=self.param_dtype,
+      )(x)
+
+    return x
     
 
 class Network(nn.Module):
@@ -55,7 +73,7 @@ class Network(nn.Module):
     attention_heads: int = 8
     norm_num_groups: int = 32
     scale: float = 0.02
-    iemb_dim: int = 256
+    emb_dim: int = 256
     imin: float = 1
     imax: float = 120
 
@@ -72,8 +90,8 @@ class Network(nn.Module):
         #     i,
         #     embedding_dim=self.features[0],
         # )
-        self.iproj = GaussianFourierProjection(self.iemb_dim, self.scale)
-        self.iemb = FlaxTimestepEmbedding(self.iemb_dim)
+        # Embedding
+        self.embedding = FourierEmbedding(dims=self.emb_dim)
         
         # Input
         self.conv_in = nn.Conv(self.features[0], self.kernel_size, padding='SAME')
@@ -130,10 +148,9 @@ class Network(nn.Module):
         self.conv_act = nn.silu
         self.conv_out = nn.Conv(1, self.kernel_size, padding='SAME')
 
-    def __call__(self, x, i, c, is_training=False):
+    def __call__(self, x, sigma, c, is_training=False):
         # Noise (time) embedding
-        iemb = self.iproj(i)
-        iemb = self.iemb(iemb)
+        emb = self.embedding(sigma)
 
         # Lifting
         x = self.conv_in(x)
@@ -141,19 +158,19 @@ class Network(nn.Module):
         # Downsample
         down_block_residuals = (x,)
         for down_block in self.down_blocks:
-            x, residuals = down_block(x, iemb, deterministic=not is_training)
+            x, residuals = down_block(x, emb, deterministic=not is_training)
             down_block_residuals += residuals
 
         # Middle
         # context is being passed as None, so the hidden states will be used instead (self-attention)
         # this can be a nice window to use topography and/or soil moisture as context
-        x = self.mid_block(x, iemb, c, deterministic=not is_training)
+        x = self.mid_block(x, emb, c, deterministic=not is_training)
 
         # Upsample
         for up_block in self.up_blocks:
             residuals = down_block_residuals[-(self.layers_per_block+1):]
             down_block_residuals = down_block_residuals[:-(self.layers_per_block+1)]
-            x = up_block(x, residuals, iemb, deterministic=not is_training)
+            x = up_block(x, residuals, emb, deterministic=not is_training)
 
         # Output
         x = self.conv_norm_out(x)

@@ -6,7 +6,7 @@ max_len: 5000 # maximum number of images to load
 validation_ratio: 0.002 # this will get a set of random images by default
 
 # Network to be used by the CM [diffusers, homemade, udffdb, conditional, heavy_diffusers]
-network: homemade
+network: diffusers
 main_variables: [precip]
 conditional_variables: # [hours, months]
 
@@ -35,7 +35,7 @@ s1: 1280 # target discretization steps
 discretization_steps: 1280 # [float, schedule, schedule_improved]
 mu: 0.0 # EMA decay rating (can be a "schedule")
 epochs: 20 # K
-EMA_decay_rate: 0.9999 # EMA decay rating for the online network
+EMA_decay_rate: 0.999 # EMA decay rating for the online network
 
 # Normalizations
 log_transform: True # log-transform the data before training
@@ -43,5 +43,5 @@ norm_mean: 0.0
 norm_std: 2.0
 
 # Logging and checkpointing
-log_each: 1
+log_each: 5
 checkpoint_each: 1 # checkpoint each #number of epochs

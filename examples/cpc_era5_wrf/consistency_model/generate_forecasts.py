@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import xarray as xr
 from time import time
 
-from models.consistency_model import ConsistencyModel
+from models.generative_models.consistency_model import ConsistencyModel
 from training.experiment import Experiment
 from training.checkpointing import Checkpointer
 from evaluation.evaluate import multi_step_sampling

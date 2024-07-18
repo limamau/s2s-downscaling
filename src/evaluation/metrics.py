@@ -6,14 +6,14 @@ from engineering.spectrum import get_psd
 
 # Metric functions in alphabetical order:
 
-def logcdf_distance(obs, sim, distance, n_quantiles=2000):
+def logcdf_distance(distance, obs, sim, n_quantiles=2000):
     """
     Calculate the log of the CDF distance between two arrays.
 
     ## Parameters:
+    distance (string): Distance metric to use. Options are "l1", "l2", and "max". 
     obs (array): Observed values.
     sim (array): Simulated values.
-    distance (string): Distance metric to use. Options are "l1", "l2", and "max". 
     The latest corresponds to the Kolmogorov-Smirnov distance.
     
 
@@ -91,6 +91,8 @@ def perkins_skill_score(obs, sim, n_quantiles=2000):
     
     # Define bins for the histogram
     wide = np.abs(global_max - global_min) / n_quantiles
+    if np.isnan(wide):
+        return np.NAN
     bins = np.arange(global_min, global_max + wide, wide)
     
     pdf_obs = get_pdf(obs, bins)

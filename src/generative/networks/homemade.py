@@ -130,11 +130,11 @@ class Network(nn.Module):
     strides: Tuple[int] = (2, 2)
     window_shape: Tuple[int] = (2, 2)
     num_groups: int = 8
-    features: Tuple[int] = (64, 128, 256, 256)
+    features: Tuple[int] = (8, 8, 8, 8)
     dropout_rate: float = 0.0
-    attention_features: int = 64
+    attention_features: int = 16
     num_heads: int = 8
-    embedding_dim: int = 256
+    embedding_dim: int = 16
     imin: int = 1
     imax: int = 10000
     

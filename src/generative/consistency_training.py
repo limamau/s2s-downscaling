@@ -7,38 +7,37 @@ from flax.training.train_state import TrainState
 from functools import partial
 
 from utils import batch_mul, create_folder, process_data, get_spatial_lengths
-from .writing import Writer
-from .checkpointing import Checkpointer
-from models.consistency_model import ConsistencyModel
+from .training.utils import *
+from .training.writing import Writer
+from .training.checkpointing import Checkpointer
+from generative.consistency_model import ConsistencyModel
 from evaluation.evaluate import evaluate_model
 
 
 @partial(jax.jit, static_argnums=(0,))
 def train_step(
-    cm,  # static
     loss_weight,
     mu,
     dropout_rng,
     state,
-    target_params,
-    x_online, online_noise, i_online,
-    x_target, target_noise, i_target,
+    x_online, online_sigma,
+    x_target, target_sigma,
     c,
 ):
     # Define the loss function inside the train step
-    def loss_fn(params):
+    def loss_fn(online_params, target_params):
         C = 0.3
-        x = cm.apply(
-            params, 
-            x_online, c, online_noise, i_online, 
+        x = state.apply(
+            {'params': online_params}, 
+            x_online, online_sigma, c,
             is_training=True, 
-            rngs={'dropout': dropout_rng}
+            rngs={'dropout': dropout_rng},
         )
-        y = cm.apply(
-            target_params, 
-            x_target, c, target_noise, i_target, 
+        y = state.apply(
+            {'params': target_params},
+            x_target, target_sigma, c,
             is_training=True, 
-            rngs={'dropout': dropout_rng}
+            rngs={'dropout': dropout_rng},
         )
         return jnp.mean(
             batch_mul(
@@ -48,7 +47,7 @@ def train_step(
         )
     
     # Get loss and gradients (with respect to online_params)
-    loss, grads = jax.value_and_grad(loss_fn)(state.params)
+    loss, grads = jax.value_and_grad(loss_fn)(state.params, state.target)
     
     # Update parameters and optimizer state
     state = state.apply_gradients(grads=grads)
@@ -106,68 +105,28 @@ def train(experiment):
     del experiment
     
     # Adjust dimensions
+    data = adjust_dimensions(data)
     Nt, Ny, Nx, _ = data.shape
-    num_blocks = 4  # FIXME: hard coded
-    Ny -= Ny % 2**(num_blocks)
-    Nx -= Nx % 2**(num_blocks)
-    data = data[:, :Ny, :Nx, :]
     
     # Normalization
     data, dataset_mean, dataset_std = process_data(data, None, None, norm_mean, norm_std, is_log_transforming)
     writer.save_normalizations(data.shape, dataset_mean, dataset_std)
     
     # PRNG
-    rng = jax.random.PRNGKey(42)
+    rng = jax.random.PRNGKey(888)
     
     # Divide data into training and validation
-    indices = np.arange(Nt)
-    rng, idx_rng = jax.random.split(rng, 2)
-    jax.random.permutation(idx_rng, indices, independent=True)
-    r = 1 - validation_ratio
-    training_indices = indices[:int(r*Nt)]
-    validation_indices = indices[int(r*Nt):]
-    Nt = int(r*Nt)
-    Nt -= Nt % batch_size
-    train_data = data[training_indices]
-    val_data = data[validation_indices]
-    if conditions is not None:
-        train_conditions = conditions[training_indices]
-        val_conditions = conditions[validation_indices]
-    else:
-        train_conditions = None
-        val_conditions = None
-    del data, conditions
+    train_data, val_data, train_conditions, val_conditions = split_data(
+        data, conditions, validation_ratio, batch_size, rng)
     
-    # Get rngs for initializations
-    rng, params_rng, dropout_rngs = jax.random.split(rng, 3)
-    init_rngs = {"params": params_rng, "dropout": dropout_rngs}
     
     # Initializations
-    cm = ConsistencyModel(norm_std, min_noise, net)
-    if train_conditions is not None:
-        online_params = net.init(
-            init_rngs,
-            jnp.ones((1, *train_data.shape[1:])),
-            jnp.ones((1,)),
-            jnp.ones((1,*train_conditions.shape[1:])),
-        )
-    else:
-        online_params = net.init(
-            init_rngs,
-            jnp.ones((1, *train_data.shape[1:])),
-            jnp.ones((1,)),
-            None,
-        )
-    
-    # last_checkpoint_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/s2s-downscaling/examples/cpc_era5_wrf/consistency_model/experiments/diffusers_jj"
-    # last_ckpter = Checkpointer(last_checkpoint_dir)
-    # latest_step = last_ckpter.manager.latest_step()
-    # print("Latest step:", latest_step)
-    # restored = last_ckpter.manager.restore(latest_step)
-    # online_params = restored['params']
-    
-    target_params = online_params
-    writer.log_params(online_params)
+    rng, init_rng = jax.random.split(rng, 2)
+    model = ConsistencyModel(net)
+    variables = initialize_model(model, init_rng, train_data, train_conditions)
+    writer.log_params(variables['params'])
+    online_params = variables['params']
+    target_params = online_params.copy()
     
     # Create the optimizer with EMA
     opt = optax.chain(
@@ -176,7 +135,8 @@ def train(experiment):
     )
     state = TrainState.create(
         apply_fn=net.apply, 
-        params=online_params, 
+        params=online_params,
+        target=target_params,
         tx=opt,
     )
     
@@ -206,24 +166,22 @@ def train(experiment):
             z = jax.random.normal(z_rng, (batch_size, Ny, Nx, 1))
             
             # Get noises and noised images
-            online_noise = noise_schedule(i + 1, current_N)
-            x_online = x + batch_mul(online_noise, z)
-            target_noise = noise_schedule(i, current_N)
-            x_target = x + batch_mul(target_noise, z)
+            online_sigma = noise_schedule(i + 1, current_N)
+            x_online = x + batch_mul(online_sigma, z)
+            target_sigma = noise_schedule(i, current_N)
+            x_target = x + batch_mul(target_sigma, z)
             
             # Loss weight
-            loss_weight = loss_weight_fn(target_noise, online_noise)
+            loss_weight = loss_weight_fn(target_sigma, online_sigma)
             
             # Train step with JIT
             loss, state, target_params = train_step(
-                cm,
                 loss_weight,
-                current_mu,
+                mu,
                 dropout_rng,
                 state,
-                target_params,
-                x_online, online_noise, i+1,
-                x_target, target_noise, i,
+                x_online, online_sigma,
+                x_target, target_sigma,
                 c,
             )
             losses[loss_idx % log_each] = loss
@@ -239,7 +197,7 @@ def train(experiment):
             
             # Validation score
             psd_distance, cdf_distance, pss = evaluate_model(
-                cm,
+                model,
                 noise_schedule,
                 target_params,
                 val_data,

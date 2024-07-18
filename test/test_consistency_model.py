@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 
-from models.consistency_model import ConsistencyModel
+from models.generative_models.consistency_model import ConsistencyModel
 
 def test_consistency_model():
     std_data = 0.5

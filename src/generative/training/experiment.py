@@ -2,7 +2,7 @@ import os, yaml, h5py
 import optax
 import numpy as np
 
-from models.networks import diffusers, homemade, udffdb, conditional, heavy_diffusers
+from generative.networks import diffusers, homemade, conditional, heavy_diffusers
 from .distances import *
 from .schedules import *
 
@@ -25,7 +25,6 @@ def _get_network(model_identifier, **kwargs):
     net_map = {
         'diffusers': diffusers.Network,
         'homemade': homemade.Network,
-        'udffdb': udffdb.Network,
         'conditional': conditional.Network,
         'heavy_diffusers': heavy_diffusers.Network,
     }
