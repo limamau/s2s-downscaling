@@ -1,12 +1,12 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-from .metrics import logpsd_distance, logcdf_distance, perkins_skill_score
+from .metrics import psd_distance, cdf_distance, perkins_skill_score
 
 
 def evaluate(model, params, x, c, rng, batch_size=1, steps=50, t_star=1):
-    obs = x.__array__()[:,:,:,0]
-    sim = np.empty_like(obs)
+    obs = x.__array__()
+    sim = np.zeros(obs.shape)
 
     for start_idx in range(0, x.shape[0], batch_size):
         # Get batch
@@ -20,24 +20,32 @@ def evaluate(model, params, x, c, rng, batch_size=1, steps=50, t_star=1):
         rng, sample_rng = jax.random.split(rng)
         sim[start_idx:end_idx] = model.sample(
             params, sample_rng, batch, batch_size, steps
-        ).__array__()[:,:,:,0]
+        ).__array__()
         
-    # Compute validation score
-    psd_distance = logpsd_distance(
+    return obs, sim
+
+
+def get_metrics(obs, sim, n_quantiles=100):
+    # Take channel out
+    obs = obs[..., 0]
+    sim = sim[..., 0]
+    
+    # Get metrics
+    psd = psd_distance(
         "l2",
         obs, obs.shape[2], obs.shape[1], # dummy distances
         sim,
     )
-    cdf_distance = logcdf_distance(
+    cdf = cdf_distance(
         "l2",
         obs,
         sim,
-        n_quantiles=100,
+        n_quantiles=n_quantiles,
     )
     pss = perkins_skill_score(
         obs,
         sim,
-        n_quantiles=100,
+        n_quantiles=n_quantiles,
     )
 
-    return psd_distance, cdf_distance, pss
+    return psd, cdf, pss

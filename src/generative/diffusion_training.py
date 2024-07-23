@@ -5,21 +5,21 @@ import numpy as np
 import jax.numpy as jnp
 from flax.training.train_state import TrainState
 
-from utils import batch_mul, create_folder, process_data, get_spatial_lengths
-from .training.utils import *
-from .training.writing import Writer
-from .training.checkpointing import Checkpointer
+from utils import batch_mul, create_folder, process_data
+from generative.training.utils import *
+from generative.training.writing import Writer
+from generative.training.checkpointing import Checkpointer
 from generative.diffusion_model import DiffusionModel
-from evaluation.evaluate import evaluate
+from evaluation.evaluate import evaluate, get_metrics
 
-
-# @jax.jit
+@jax.jit
 def train_step(
+    state,
+    ema_decay,
+    dropout_key,
+    lambda_sigma,
     c_skip,
     c_out,
-    lambda_sigma,
-    dropout_key,
-    state,
     y,
     n,
     sigma,
@@ -47,9 +47,21 @@ def train_step(
         
         return loss
     
+    # Compute loss and gradients
     loss, grads = jax.value_and_grad(loss_fn)(state.params)
     
-    state = state.apply_gradients(grads=grads)
+    # Calculate EMA parameters
+    updates, new_opt_state = state.tx.update(
+        grads, state.opt_state, state.params
+    )
+    new_params = optax.apply_updates(state.params, updates)
+    ema_params = jax.tree_map(
+        lambda ema_p, new_p: ema_p*ema_decay + (1-ema_decay)*new_p,
+        state.params, new_params
+    )
+    
+    # Update state
+    state.replace(params=ema_params, opt_state=new_opt_state)
     
     return loss, state
 
@@ -61,12 +73,12 @@ def train(experiment):
     conditions = experiment.conditions
     validation_ratio = experiment.validation_ratio
     net = experiment.network
-    optimizer = experiment.optimizer
-    learning_rate = experiment.learning_rate
-    ema_rate = experiment.ema
+    # optimizer = experiment.optimizer
+    # learning_rate = experiment.learning_rate
+    # ema_rate = experiment.ema
     
     batch_size = experiment.batch_size
-    min_noise = experiment.min_noise
+    # min_noise = experiment.min_noise
     epochs = experiment.epochs
     norm_mean = experiment.norm_mean
     norm_std = experiment.norm_std
@@ -74,6 +86,7 @@ def train(experiment):
     
     log_each = experiment.log_each
     ckpt_each = experiment.ckpt_each
+    rng = jax.random.PRNGKey(888)
     
     # Logs and checkpoints
     create_folder(experiment_dir, overwrite=True)
@@ -93,50 +106,53 @@ def train(experiment):
     
     # Adjust dimensions
     data = adjust_dimensions(data)
-    Nt = data.shape[0]
     
     # Normalization
     data, dataset_mean, dataset_std = process_data(data, None, None, norm_mean, norm_std, is_log_transforming)
     writer.save_normalizations(data.shape, dataset_mean, dataset_std)
     
-    # PRNG
-    rng = jax.random.PRNGKey(888)
-    
     # Divide data into training and validation
     train_data, val_data, train_conditions, val_conditions = split_data(
-        data, conditions, validation_ratio, batch_size, rng)
-    
+        data, conditions, validation_ratio, batch_size, rng
+    )
+    Nt = train_data.shape[0]
     
     # Initializations
-    rng, init_rng = jax.random.split(rng, 2)
+    rng, init_key = jax.random.split(rng, 2)
     model = DiffusionModel(net)
-    variables = initialize_model(model, init_rng, train_data, train_conditions)
+    variables = initialize_model(model, init_key, train_data, train_conditions)
     writer.log_params(variables['params'])
     
-    # Create the optimizer with EMA
-    opt = optax.chain(
+    # Create the optimizer and the ema
+    tx = optax.chain(
         optax.clip_by_global_norm(1.0),
-        optax.adam(1e-6),
+        optax.adam(
+            learning_rate=optax.linear_schedule(
+                init_value=1e-1,
+                end_value=1e-4,
+                transition_steps=5000,
+            ),
+        ),
     )
     
     # Train state
     state = TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
-        tx=opt,
+        tx=tx,
     )
+    ema_decay = 0.999
     
     # Losses and its index
     loss_idx, k = 0, 0
     losses = np.zeros(log_each, dtype=np.float32)
     
     # Training loop
-    k = 0
     for epoch in range(epochs):
         for start_idx in range(0, Nt, batch_size):
             # Iteration data
             end_idx = start_idx + batch_size
-            k +=1
+            k += 1
             y = train_data[start_idx:end_idx, :, :, :]
             if train_conditions is not None:
                 c = train_conditions[start_idx:end_idx, :, :]
@@ -144,9 +160,9 @@ def train(experiment):
                 c = None
                 
             # Sample noise level and noise
-            rng, sigma_rng, normal_rng, dropout_rng = jax.random.split(rng, 4)
-            sigma = model.sample_noise(sigma_rng, batch_size)
-            n = batch_mul(sigma, jax.random.normal(normal_rng, y.shape))
+            rng, sigma_key, normal_key, dropout_key = jax.random.split(rng, 4)
+            sigma = model.sample_noise(sigma_key, batch_size)
+            n = batch_mul(sigma, jax.random.normal(normal_key, y.shape))
             
             # and preconditionnings
             c_skip = model.skip_scaling(sigma)
@@ -155,16 +171,16 @@ def train(experiment):
             
             # Train step with JIT
             loss, state = train_step(
+                state,
+                ema_decay,
+                dropout_key,
+                lambda_sigma,
                 c_skip,
                 c_out,
-                lambda_sigma,
-                dropout_rng,
-                state,
                 y,
                 n,
                 sigma,
             )
-            print("loss: ", loss)
             losses[loss_idx % log_each] = loss
             loss_idx += 1
             
@@ -177,9 +193,10 @@ def train(experiment):
             writer.log_loss(k, avg_loss)
             
             # Validation score
-            psd_distance, cdf_distance, pss = evaluate(
-                model, state.params, val_data, val_conditions, rng, batch_size=1, steps=5, t_star=1
+            obs, sim = evaluate(
+                model, state.params, val_data, val_conditions, rng, batch_size=1, steps=5, t_star=1,
             )
+            psd_distance, cdf_distance, pss = get_metrics(obs, sim)
             
             # Write to CSV
             writer.add_csv_row(

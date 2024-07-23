@@ -6,9 +6,9 @@ from engineering.spectrum import get_psd
 
 # Metric functions in alphabetical order:
 
-def logcdf_distance(distance, obs, sim, n_quantiles=2000):
+def cdf_distance(distance, obs, sim, n_quantiles=2000):
     """
-    Calculate the log of the CDF distance between two arrays.
+    Calculate the CDF distance between two arrays.
 
     ## Parameters:
     distance (string): Distance metric to use. Options are "l1", "l2", and "max". 
@@ -26,10 +26,9 @@ def logcdf_distance(distance, obs, sim, n_quantiles=2000):
     wide = abs(global_max - global_min) / n_quantiles
     bins = np.arange(global_min, global_max + wide, wide)
     
-    # Get log-CDF
-    epsilon=1e-5
-    cdf_obs = np.log(get_cdf(obs, bins) + epsilon) - np.log(epsilon)
-    cdf_sim = np.log(get_cdf(sim, bins) + epsilon) - np.log(epsilon)
+    # Get CDF
+    cdf_obs = get_cdf(obs, bins)
+    cdf_sim = get_cdf(sim, bins)
     
     match distance:
         case "l1":
@@ -103,7 +102,7 @@ def perkins_skill_score(obs, sim, n_quantiles=2000):
     return pss
 
 
-def logpsd_distance(
+def psd_distance(
     distance,
     obs,
     obs_x_length,
@@ -114,7 +113,7 @@ def logpsd_distance(
     num=100,
 ):
     """
-    Calculate the log of the Potential Spectral Density (PSD) distance between two arrays.
+    Calculate the Potential Spectral Density (PSD) distance between two arrays.
     If the physical lengths of the x and y axes are not provided for the simulated data,
     it is assumed that they are the same as the observed data (this will save some computation time).
 
@@ -140,10 +139,6 @@ def logpsd_distance(
     # Get wavelengths and PSDs
     obs_wavelengths, obs_psd = get_psd(obs, obs_x_length, obs_y_length)
     sim_wavelengths, sim_psd = get_psd(sim, sim_x_length, sim_y_length)
-    
-    # Get log of PSD
-    obs_psd = np.log(obs_psd)
-    sim_psd = np.log(sim_psd)
     
     if different_lengths:
         # Interpolate to the commons wavelengths

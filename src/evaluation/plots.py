@@ -214,7 +214,7 @@ def plot_maps(
         raise ValueError("Number of arrays must be even.")
 
     # Figure size
-    figsize = (8, 3.3)
+    figsize = (8, 4.3)
     n_rows = n_plots // 2
     fig_height = figsize[1] * n_rows/2
     fig_width = figsize[0]
@@ -270,7 +270,7 @@ def plot_maps(
     )
     
     # Create a single axis for the colorbar
-    cbar_ax = fig.add_axes([0.89, 0.5-0.5/n_rows, 0.02, 1/n_rows])
+    cbar_ax = fig.add_axes([0.89, 0.5-0.5/n_rows, 0.02, 1/n_rows-0.01])
     fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
     return fig, axes

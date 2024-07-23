@@ -1,10 +1,6 @@
 import os, yaml, h5py
-import optax
 import numpy as np
-
-from generative.networks import diffusers, homemade, conditional, heavy_diffusers
-from .distances import *
-from .schedules import *
+from generative import networks
 
 
 def _get_string(value):
@@ -23,10 +19,10 @@ def _get_list(value):
     
 def _get_network(model_identifier, **kwargs):
     net_map = {
-        'diffusers': diffusers.Network,
-        'homemade': homemade.Network,
-        'conditional': conditional.Network,
-        'heavy_diffusers': heavy_diffusers.Network,
+        'diffusers': networks.diffusers.Network,
+        'homemade': networks.homemade.Network,
+        'conditional': networks.conditional.Network,
+        'heavy_diffusers': networks.heavy_diffusers.Network,
     }
     if model_identifier not in net_map:
         raise ValueError("Unsupported model: {}".format(model_identifier))
@@ -36,34 +32,6 @@ def _get_network(model_identifier, **kwargs):
     
     return net_map[model_identifier](**kwargs)
 
-
-def _get_distance(dist_identifier):
-    dist_map = {
-        'l1': l1,
-        'l2': l2,
-        'lpips': lpips,
-    }
-    if dist_identifier not in dist_map:
-        raise ValueError("Unsupported distance: {}".format(dist_identifier))
-    return dist_map[dist_identifier]
-
-
-def _get_loss_weighting(is_loss_weighting):
-    if is_loss_weighting:
-        return lambda x,y: loss_weight(x,y)
-    else:
-        return lambda x,y: 1.0
-
-
-def _get_optimizer(optimizer_identifier):
-    optimizer_map = {
-        'adam': optax.adam,
-        'radam': optax.radam,
-    }
-    if optimizer_identifier not in optimizer_map:
-        raise ValueError("Unsupported optimizer: {}".format(optimizer_identifier))
-    return optimizer_map[optimizer_identifier]
-        
 
 def _get_data(file, main_variables, conditional_variables, max_len):
     if file is not None:
@@ -111,40 +79,6 @@ def _get_boolean(value):
         return ValueError("Value cannot be None.")
     return bool(value)
     
-    
-def _get_N(N, s0, s1, training_iterations):
-    if isinstance(N, int):
-        return lambda k: N
-    if s0 == None:
-            raise ValueError("s0 cannot be None for N schedule.")
-    if s1 == None:
-        raise ValueError("s1 cannot be None for N schedule.")
-    if N == 'schedule':
-        return N_schedule(s0, s1, training_iterations)
-    elif N == 'schedule_improved':
-        return N_schedule_improved(s0, s1, training_iterations)
-    
-    raise ValueError("Unsupported N: {}".format(N))
-
-
-def _get_mu(mu, s0, mu0, N):
-    if isinstance(mu, float):
-        return lambda k: mu
-    elif mu == 'schedule':
-        if s0 == None:
-            raise ValueError("s0 cannot be None for EMA schedule.")
-        elif mu0 == None:
-            raise ValueError("mu0 cannot be None for EMA schedule.")
-        else:
-            return mu_schedule(s0, mu0, N)
-    else:
-        raise ValueError("Unsupported EMA decay rate: {}".format(mu))
-    
-    
-def _get_noise_schedule(min_noise, max_noise):
-    return noise_schedule(min_noise, max_noise)
-
-
 def _get_dimensions(dimensions):
     if dimensions is None:
         return None
@@ -176,31 +110,13 @@ class Experiment:
         self.training_iterations = self.epochs * self.Nt
         self.network_identifier = _get_string(experiment.get('network'))
         self.dropout = _get_float(experiment.get('dropout'), error_if_none=False)
-        self.min_noise = _get_float(experiment.get('min_noise'))
-        self.imin = _get_float(experiment.get('imin'))
-        self.max_noise = _get_float(experiment.get('max_noise'))
-        self.imax = _get_float(experiment.get('imax'))
+        self.sigma_min = _get_float(experiment.get('sigma_min'))
+        self.sigma_max = _get_float(experiment.get('sigma_max'))
         self.network = _get_network(self.network_identifier, 
             dropout_rate=self.dropout,
-            imin=self.imin,
-            imax=self.imax,
         )
-        self.distance_identifier = _get_string(experiment.get('distance'))
-        self.distance = _get_distance(self.distance_identifier)
-        self.is_loss_weighting = _get_boolean(experiment.get('loss_weight'))
-        self.loss_weighting = _get_loss_weighting(self.is_loss_weighting)
         self.learning_rate = _get_float(experiment.get('learning_rate'))
-        self.ema = _get_float(experiment.get('EMA_decay_rate'), error_if_none=False)
-        self.optimizer_identifier = _get_string(experiment.get('optimizer'))
-        self.optimizer = _get_optimizer(self.optimizer_identifier)
-        self.mu0 = _get_float(experiment.get('mu0'), error_if_none=False)
-        self.s0 = _get_float(experiment.get('s0'), error_if_none=False)
-        self.s1 = _get_float(experiment.get('s1'), error_if_none=False)
-        self.discretization_steps_identifier = experiment.get('discretization_steps')
-        self.discretization_steps = _get_N(self.discretization_steps_identifier, self.s0, self.s1, self.training_iterations)
-        self.mu_identifier = experiment.get('mu')
-        self.mu = _get_mu(self.mu_identifier, self.s0, self.mu0, self.discretization_steps)
-        self.noise_schedule = _get_noise_schedule(self.min_noise, self.max_noise)
+        self.ema = _get_float(experiment.get('ema_decay_rate'), error_if_none=False)
         self.is_log_transforming = _get_boolean(experiment.get('log_transform'))
         self.norm_mean = _get_float(experiment.get('norm_mean'))
         self.norm_std = _get_float(experiment.get('norm_std'))

@@ -13,9 +13,6 @@ conditional_variables: # [hours, months]
 # Network configuration
 dropout: 0.3
 
-# Distance [l1, l2, lpips]
-distance: l1
-
 # Loss weighting
 loss_weight: True # whether or nor to use the lambda schedule
 
@@ -25,23 +22,16 @@ optimizer: radam
 # Hyperparameters
 learning_rate: 1e-6
 batch_size: 1
-min_noise: 0.002
-imin: 1 # minimum noise step
-max_noise: 80.0
-imax: 1280 # maximum noise step
-mu0: 0.9 # ema decay rating at the beginning of training
-s0: 10 # initial discretization steps
-s1: 1280 # target discretization steps
-discretization_steps: 1280 # [float, schedule, schedule_improved]
-mu: 0.0 # EMA decay rating (can be a "schedule")
-epochs: 20 # K
-EMA_decay_rate: 0.999 # EMA decay rating for the online network
+sigma_min: 0.002
+sigma_max: 80.0
+epochs: 100
+ema_decay_rate: 0.999
 
 # Normalizations
-log_transform: True # log-transform the data before training
+log_transform: True
 norm_mean: 0.0
 norm_std: 2.0
 
 # Logging and checkpointing
-log_each: 5
-checkpoint_each: 1 # checkpoint each #number of epochs
+log_each: 5000
+checkpoint_each: 2 # checkpoint each #number of epochs

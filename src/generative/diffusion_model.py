@@ -112,12 +112,11 @@ class DiffusionModel(nn.Module):
         dt = t[1] - t[0]
 
         # Euler-Maruyama sampling loop
-        for i in range(steps):
+        for i in range(steps-1, 1, -1):
             rng, step_rng = jax.random.split(rng, 2)
             batched_i = jnp.full((batch_size,), i)
             t_i = t[batched_i]
             sigma_i = self.sigma_schedule(batched_i, steps)
-            # Check dimensions
             denoise = batch_mul(1/t_i, x) - batch_mul(2/t_i, self.apply({'params': params}, x, sigma_i, None)) * dt
             noise_injection = batch_mul(jnp.sqrt(2 * t_i), jax.random.normal(step_rng, x.shape)) * jnp.sqrt(dt)
             x = denoise + noise_injection

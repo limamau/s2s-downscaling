@@ -7,7 +7,6 @@ import optax
 import orbax.checkpoint as ocp
 import os
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from sklearn.model_selection import train_test_split
 
 
@@ -76,8 +75,8 @@ def get_custom_dataset(split: str, batch_size: int, num_blocks: int = 2):
     
     # Adapt shape for the model
     _, Ny, Nx = data.shape
-    Ny -= Ny % 14 # 2**(num_blocks)
-    Nx -= Nx % 14 # 2**(num_blocks)
+    Ny -= Ny % 2**(num_blocks)
+    Nx -= Nx % 2**(num_blocks)
     data = data[:, :Ny, :Nx]
     data = jnp.expand_dims(data, axis=-1)
     
@@ -141,8 +140,9 @@ with h5py.File(file_path, 'r') as f:
 
 # Adapt shape for the model
 Ny, Nx = data.shape
-Ny = 28 # -= Ny % 14 # 2**(num_blocks)
-Nx = 28 # -= Nx % 14 # 2**(num_blocks)
+num_blocks = 2
+Ny -= Ny % 2**(num_blocks)
+Nx -= Nx % 2**(num_blocks)
 model = dfn.DenoisingModel(
     # `input_shape` must agree with the expected sample shape (without the batch
     # dimension), which in this case is simply the dimensions of a single MNIST
@@ -159,6 +159,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 ## Learning parameters
 num_train_steps = 100_000  #@param
 workdir = os.path.join(script_dir, "/tmp/diffusion_demo_mnist")  #@param
+print("workdir:", workdir)
 train_batch_size = 2  #@param
 eval_batch_size = 2  #@param
 initial_lr = 0.0  #@param
