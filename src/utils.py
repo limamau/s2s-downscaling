@@ -248,7 +248,7 @@ def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transfor
     return data
 
 
-def write_dataset(times, lats, lons, data, filename):
+def _write_deterministic_dataset(times, lats, lons, data, filename):
     """
     Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
     """
@@ -266,3 +266,36 @@ def write_dataset(times, lats, lons, data, filename):
     
     # Write dataset
     ds.to_netcdf(filename, engine="h5netcdf")
+
+
+def _write_ensemble_dataset(times, lats, lons, data, filename):
+    """
+    Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
+    """
+    # Create dataset
+    ds = xr.Dataset(
+        {
+            "precip": (["time", "ensemble", "latitude", "longitude"], data),
+        },
+        coords = {
+            "time": (["time"], times),
+            "ensemble": (["ensemble"], np.arange(data.shape[1])),
+            "latitude": (["latitude"], lats),
+            "longitude": (["longitude"], lons),
+        },
+    )
+    
+    # Write dataset
+    ds.to_netcdf(filename, engine="h5netcdf")
+    
+    
+def write_dataset(times, lats, lons, data, filename):
+    """
+    Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
+    """
+    if len(data.shape) == 4:
+        _write_ensemble_dataset(times, lats, lons, data, filename)
+    elif len(data.shape) == 3:
+        _write_deterministic_dataset(times, lats, lons, data, filename)
+    else:
+        raise ValueError("Data must have either 4 (deterministic) or 5 (ensemble) dimensions.")

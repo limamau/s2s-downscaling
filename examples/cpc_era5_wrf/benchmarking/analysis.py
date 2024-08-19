@@ -1,28 +1,32 @@
-import os
-import h5py
+import os, h5py
 import xarray as xr
 
 from evaluation.plots import *
 from evaluation.metrics import *
 from utils import create_folder, get_spatial_lengths
 
-def load_data(data_dir, filenames):
+
+def load_data(filenames):
     data = {}
-    for name, filename in filenames.items():
-        with h5py.File(os.path.join(data_dir, filename), "r") as f:
-            data[name] = {
-                "precip": f["precip"][:, :, :],
-                "lons": f["longitude"][:],
-                "lats": f["latitude"][:],
-                "times": xr.open_dataset(os.path.join(data_dir, filename)).time.values
-            }
+    for name, file in filenames.items():
+        if name == "Diffusion":
+            with h5py.File(file, "r") as f:
+                data[name] = {
+                    "precip": f["precip"][:, 0, :, :],
+                    "lons": f["longitude"][:],
+                    "lats": f["latitude"][:],
+                    "times": xr.open_dataset(file).time.values
+                }
+        else:
+            with h5py.File(file, "r") as f:
+                data[name] = {
+                    "precip": f["precip"][:, :, :],
+                    "lons": f["longitude"][:],
+                    "lats": f["latitude"][:],
+                    "times": xr.open_dataset(file).time.values
+                }
     return data
 
-def preprocess_data(data, time_index, Nx, Ny):
-    for key in data.keys():
-        data[key]['precip'] = data[key]['precip'][time_index, :Ny, :Nx]
-        data[key]['times'] = data[key]['times'][time_index]
-    return data
 
 def create_forecast_dicts(data, x_length, y_length):
     return [
@@ -30,61 +34,10 @@ def create_forecast_dicts(data, x_length, y_length):
         for name, values in data.items()
     ]
 
-def print_metrics(reference, forecasts, unit):
-    metrics = [
-        {
-            "name": "MAE ({})".format(unit),
-            "func": lambda ref, pred: mean_absolute_error(ref["data"], pred["data"])
-        },
-        {
-            "name": "RMSE ({})".format(unit),
-            "func": lambda ref, pred: root_mean_squared_error(ref["data"], pred["data"])
-        },
-        {
-            "name": "logCDF-l2 (no units)",
-            "func": lambda ref, pred: logcdf_distance(ref["data"], pred["data"], "l2")
-        },
-        # {
-        #     "name": "logCDF-max (no units)",
-        #     "func": lambda ref, pred: logcdf_distance(ref["data"], pred["data"], "max")
-        # },
-        {
-            "name": "Perkins Skill Score (no units)",
-            "func": lambda ref, pred: perkins_skill_score(ref["data"], pred["data"])
-        },
-        {
-            "name": "CRPS ({})".format(unit),
-            "func": lambda ref, pred: crps(ref["data"], pred["data"])
-        },
-        {
-            "name": "logPSD-l2 (no units)",
-            "func": lambda ref, pred: logpsd_distance(
-                "l2",
-                ref["data"], ref["x_length"], ref["y_length"],
-                pred["data"], pred["x_length"], pred["y_length"],
-            )
-        },
-        # {
-        #     "name": "logPSD-max (no units)",
-        #     "func": lambda ref, pred: logpsd_distance(
-        #         "max",
-        #         ref["data"], ref["x_length"], ref["y_length"],
-        #         pred["data"], pred["x_length"], pred["y_length"],
-        #     )
-        # },
-    ]
 
-    for metric in metrics:
-        print("+ "+metric["name"]+":")
-        for forecast in forecasts:
-            value = metric["func"](reference, forecast)
-            print("  - {}: {:.3f}".format(forecast['name'], value))
-        print("\n")
-
-def main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls):
+def main(filenames, time_idxs, colors, ls):
     # Load and preprocess data
-    data = load_data(data_dir, filenames)
-    data = preprocess_data(data, time_index, Nx, Ny)
+    data = load_data(filenames)
 
     # Extract spatial extents
     lons, lats = data['CombiPrecip']['lons'], data['CombiPrecip']['lats']
@@ -101,8 +54,8 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls):
 
     # Plot maps
     first = True
-    for plot_time in plot_times:
-        arrays = [data[key]['precip'][plot_time, :, :] for key in filenames.keys()]
+    for time_idx in time_idxs:
+        arrays = [data[key]['precip'][time_idx, :, :] for key in filenames.keys()]
         
         if first:
             print("Check times:")
@@ -111,11 +64,12 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls):
                 print(times[-1])
             first = False
         
-        titles = (None,)*len(arrays)
-        # titles = list(filenames.keys())
+        titles = list(filenames.keys())
         extents = [extent] * len(arrays)
         fig, _ = plot_maps(arrays, titles, extents)
-        fig.savefig(os.path.join(figs_dir, "maps_comparison_H{:02d}.png".format(plot_time)))
+        gif_dir = os.path.join(figs_dir, "maps_gif")
+        os.makedirs(gif_dir, exist_ok=True)
+        fig.savefig(os.path.join(gif_dir, "maps_comparison_H{:02d}.png".format(time_idx)))
 
     # Plot CDFs
     arrays = [data[key]['precip'] for key in filenames.keys()]
@@ -131,55 +85,31 @@ def main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls):
     # Plot PP
     fig, _ = plot_pp(arrays, labels, colors=colors, ls=ls)
     fig.savefig(os.path.join(figs_dir, "pp_comparison.png"))
-    
-    reference = forecasts.pop(2)  # Assuming the first item is the reference
 
-    # Print metrics
-    print_metrics(reference, forecasts, "mm/h")
 
 if __name__ == "__main__":
-    data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
+    test_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
+    dm_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts"
     filenames = {
-        "ERA5 (nearest)": "era5_nearest.h5",
-        ####### "ERA5 (interpolated)": "era5_interpolated.h5",
-        "ERA5 (low-pass)": "era5_low-pass.h5",
-        "CombiPrecip": "cpc.h5",
-        "WRF": "wrf.h5",
-        "QM (all)": "era5_qm_all.h5",
-        "QM (point)": "era5_qm_point.h5",
-        # "CM (all) - 2 steps": "cm_qm_all_2.h5",
-        # "CM (point) - 2 steps": "cm_qm_point_2.h5",
-        "CM (all)": "cm_qm_all_4.h5",
-        "CM (point)": "cm_qm_point_4.h5",
+        "ERA5": os.path.join(test_data_dir, "era5_nearest.h5"),
+        "WRF": os.path.join(test_data_dir, "wrf_2021.h5"),
+        "Diffusion": os.path.join(dm_data_dir, "light_50.h5"),
+        "CombiPrecip": os.path.join(test_data_dir, "cpc.h5"),
     }
-    time_index = slice(0, 48)
-    Nx = 336
-    Ny = 224
-    plot_times = [0, 8, 16, 24, 32, 38]
+    time_idxs = slice(0, 48)
+    time_idxs = range(0, 48, 1)
     cmap = CURVE_CMAP
     colors = (
         cmap(0),
-        cmap(1),
-        cmap(2),
         cmap(3),
         cmap(6),
-        cmap(5),
-        cmap(6),
-        cmap(5),
-        # cmap(6),
-        # cmap(5),
+        cmap(2),
     )
     ls = (
         '-',
         '-',
         '-',
         '-',
-        '-',
-        '-',
-        # ':',
-        # ':',
-        '--',
-        '--',
     )
 
-    main(data_dir, filenames, time_index, Nx, Ny, plot_times, colors, ls)
+    main(filenames, time_idxs, colors, ls)

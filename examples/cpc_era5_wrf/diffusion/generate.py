@@ -1,10 +1,12 @@
-import jax
+import jax, time
 import jax.numpy as jnp
+import xarray as xr
 
 from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
-from swirl_dynamics.data.hdf5_utils import read_single_array, save_array_dict
+from swirl_dynamics.data.hdf5_utils import read_single_array
+from utils import write_dataset
 
 import configs
 
@@ -29,9 +31,12 @@ def get_dataset_info(file_path: str, key: str, split:float):
     return images.shape, mu, sigma
 
 
-def get_dataset(file_path: str, key: str):
+def get_test_dataset_info(file_path: str, key: str):
     # Read the dataset from the .hdf5 file.
     images = read_single_array(file_path, key)
+    lons = read_single_array(file_path, "longitude")
+    lats = read_single_array(file_path, "latitude")
+    times = xr.open_dataset(file_path).time.values
 
     # Normalize the images
     mu = jnp.mean(images)
@@ -41,7 +46,7 @@ def get_dataset(file_path: str, key: str):
     # Expand dims
     ds = jnp.expand_dims(images, axis=-1)
 
-    return ds
+    return ds, lons, lats, times
 
 
 def main(config, test_file_path, save_path, clip_max, num_samples):
@@ -86,7 +91,7 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
         file_path=config.file_path,
         key="precip",
         split=0.75,
-    ) 
+    )
 
     # Sampler
     sampler = dfn_lib.SdeCustomSampler(
@@ -106,7 +111,7 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
     generate = jax.jit(sampler.generate, static_argnames=('num_samples',))
     
     # Test dataset
-    test_ds = get_dataset(
+    test_ds, lons, lats, times = get_test_dataset_info(
         file_path=test_file_path,
         key="precip",
     )
@@ -118,7 +123,6 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
     rng = jax.random.PRNGKey(0)
     for i in range(test_ds.shape[0]):
         rng, rng_step = jax.random.split(rng)
-        print("i:", i)
         # Generate samples from the test dataset
         samples = generate(
             init_sample=test_ds[i],
@@ -130,10 +134,15 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
         samples_list.append(samples)
     
     # Convert list to a single numpy array
-    forecasts = jnp.array(samples_list)
+    forecasts = jnp.array(samples_list)[:,:,:,:,0]
+    
+    # Clip zeros
+    forecasts = jnp.clip(forecasts, min=0, max=None)
 
     # Save all samples in a single HDF5 file
-    save_array_dict(save_path, {"precip": forecasts})
+    write_dataset(
+        times, lats, lons, forecasts, save_path,
+    )
     
 
 if __name__ == "__main__":
@@ -155,4 +164,7 @@ if __name__ == "__main__":
     # Path to save the generated forecasts
     save_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts/{config.experiment_name}_{clip_max}.h5"
     
+    start_time = time.time()
     main(config, test_file_path, save_path, clip_max, num_samples)
+    final_time = time.time() - start_time
+    print(f"Total time taken: {final_time} seconds.")
