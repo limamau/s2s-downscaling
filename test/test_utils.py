@@ -2,7 +2,7 @@ import jax.numpy as jnp
 
 from utils import *
 
-def test_utils():
+def test_processing():
     # Create some test data
     data = jnp.array([1.0, 2.0, 3.0, 4.0])
 
@@ -17,5 +17,13 @@ def test_utils():
     data, mean, std = process_data(data, mean=None, std=None, is_log_transforming=True)
     data = deprocess_data(data, mean, std, is_log_transforming=True)
     assert jnp.allclose(data, jnp.array([1.0, 2.0, 3.0, 4.0]))
+    
+
+def test_write_dataset():
+    pass    
+
+def test_utils():
+    test_processing()
+    test_write_dataset()
     
     print("utils.py passed!")

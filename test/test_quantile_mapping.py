@@ -1,6 +1,6 @@
 import numpy as np
 
-from models.quantile_mapping import quantile_mapping
+from debiasing.quantile_mapping import quantile_mapping
 
 def test_quantile_mapping():
     matrix = np.full((5, 5), 2)
