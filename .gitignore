@@ -1,9 +1,12 @@
-dev/
+backup/
+configs/
 experiments/
 figs/
+
 __pycache__/
 .vscode/
 src/s2s_downscaling.egg-info
-todo
 *.out
 *_backup.py
+
+venv/

@@ -1,0 +1,3 @@
+[submodule "src/swirl-dynamics"]
+	path = src/swirl-dynamics
+	url = https://github.com/maumlima/swirl-dynamics

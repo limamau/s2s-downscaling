@@ -66,7 +66,6 @@ def regrid_wrf(ds, new_lons, new_lats):
         lats_2d,
         new_lon_2d,
         new_lat_2d,
-        (data.shape[0], new_lats.size, new_lons.size),
     )
     
     return ds.XTIME.values, new_data

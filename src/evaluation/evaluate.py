@@ -4,7 +4,16 @@ import numpy as np
 from .metrics import psd_distance, cdf_distance, perkins_skill_score
 
 
-def evaluate(model, params, x, c, rng, batch_size=1, steps=50, t_star=1):
+def evaluate(
+    model,
+    params,
+    x,
+    c,
+    rng,
+    steps,
+    batch_size=1,
+    t_star=1,
+):
     obs = x.__array__()
     sim = np.zeros(obs.shape)
 
@@ -21,6 +30,7 @@ def evaluate(model, params, x, c, rng, batch_size=1, steps=50, t_star=1):
         sim[start_idx:end_idx] = model.sample(
             params, sample_rng, batch, batch_size, steps
         ).__array__()
+        print(f"Generated {end_idx} samples")
         
     return obs, sim
 

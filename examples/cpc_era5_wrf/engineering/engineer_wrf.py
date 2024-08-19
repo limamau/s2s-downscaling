@@ -8,7 +8,7 @@ from engineering_utils import concat_wrf, regrid_wrf
 
 def main():
     # Data paths
-    wrf_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/output_wrf/2021062800_analysis"
+    wrf_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/output_wrf/2018061100_analysis"
     cpc_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
     
     # Read and plot original datasets
@@ -29,8 +29,8 @@ def main():
     # Get reference grid from CPC
     cpc_file = os.path.join(cpc_data_dir, "cpc.h5")
     with h5py.File(cpc_file, 'r') as h5_file:
-        new_lons = h5_file['lons']
-        new_lats = h5_file['lats']
+        new_lons = h5_file['longitude'][:]
+        new_lats = h5_file['latitude'][:]
     
     # Postprocessed WRF data
     times, wrf_data = regrid_wrf(wrf_ds, new_lons, new_lats)
@@ -50,7 +50,7 @@ def main():
     # Create and save new datasets
     wrf_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
     create_folder(wrf_data_dir)
-    write_dataset(times, new_lats, new_lons, wrf_data, os.path.join(wrf_data_dir, "wrf.h5"))
+    write_dataset(times, new_lats, new_lons, wrf_data, os.path.join(wrf_data_dir, "wrf_2018.h5"))
 
 
 if __name__ == '__main__':
