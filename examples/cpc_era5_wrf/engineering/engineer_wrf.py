@@ -1,56 +1,48 @@
-import os, h5py
+import os, h5py, datetime
 import numpy as np
-
-from evaluation.plots import plot_maps
-from utils import create_folder, write_dataset
-
+from utils import write_dataset
 from engineering_utils import concat_wrf, regrid_wrf
+from configs.wrf import get_config
 
-def main():
-    # Data paths
-    wrf_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/output_wrf/2018061100_analysis"
-    cpc_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
-    
+def process_year(storm_dir, new_lons, new_lats, initial_date, final_date):
     # Read and plot original datasets
-    wrf_ds = concat_wrf(wrf_data_dir)
-    time = 12
-    
-    # To plot
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    figs_dir = os.path.join(script_dir, "figs/engineering")
-    os.makedirs(figs_dir, exist_ok=True)
-    os.makedirs(os.path.join(figs_dir, "maps"), exist_ok=True)
-    lons_2d = wrf_ds.XLONG.values
-    lats_2d = wrf_ds.XLAT.values
-    times = wrf_ds.Time.values[12:60]
-    original_data = wrf_ds.PREC_ACC_NC.values[12:60,:,:]
-    original_extent = (np.min(lons_2d), np.max(lons_2d), np.min(lats_2d), np.max(lats_2d))
-    
-    # Get reference grid from CPC
-    cpc_file = os.path.join(cpc_data_dir, "cpc.h5")
-    with h5py.File(cpc_file, 'r') as h5_file:
-        new_lons = h5_file['longitude'][:]
-        new_lats = h5_file['latitude'][:]
+    wrf_ds = concat_wrf(storm_dir, initial_date, final_date)
     
     # Postprocessed WRF data
     times, wrf_data = regrid_wrf(wrf_ds, new_lons, new_lats)
-    post_extent = (np.min(new_lons), np.max(new_lons), np.min(new_lats), np.max(new_lats))
-    
-    # Plot
-    arrays = (original_data[time,:,:], wrf_data[time,:,:])
-    titles = ("WRF (original)", "WRF (post-processed)")
-    extents = (original_extent, post_extent)
-    axis_labels = (("lon", "lat"), ("lon", "lat"))
-    fig, _ = plot_maps(arrays, titles, extents, axis_labels=axis_labels)
-    fig.savefig(os.path.join(figs_dir, "maps/wrf_postprocessed.png"))
     
     # Clip negative values to 0
     wrf_data[wrf_data < 0] = 0
     
-    # Create and save new datasets
-    wrf_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
-    create_folder(wrf_data_dir)
-    write_dataset(times, new_lats, new_lons, wrf_data, os.path.join(wrf_data_dir, "wrf_2018.h5"))
+    return times, wrf_data
+
+
+def main():
+    config = get_config()
+    
+    test_data_dir = config.test_data_dir
+    storm_dirs = config.storm_dirs
+    storm_dates = config.storm_dates
+    output_dir = config.output_dir
+    
+    # Get lat/lon reference
+    cpc_file = os.path.join(test_data_dir, "cpc.h5")
+    with h5py.File(cpc_file, 'r') as h5_file:
+        lons = h5_file['longitude'][:]
+        lats = h5_file['latitude'][:]
+    
+    first = True
+    for storm_dir, storm_date in zip(storm_dirs, storm_dates):
+        if first:
+            first = False
+            times, data = process_year(storm_dir, lons, lats, storm_date, storm_date + datetime.timedelta(days=1))
+        else:
+            new_times, new_data = process_year(storm_dir, lons, lats, storm_date, storm_date + datetime.timedelta(days=1))
+            data = np.concatenate([data, new_data], axis=0)
+            times = np.concatenate([times, new_times], axis=0)
+    
+    # Create and save new dataset
+    write_dataset(times, lats, lons, data, os.path.join(output_dir, "wrf.h5"))
 
 
 if __name__ == '__main__':

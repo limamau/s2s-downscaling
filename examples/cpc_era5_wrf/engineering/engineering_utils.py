@@ -96,20 +96,17 @@ def concat_cpc(data_dir, initial_date, final_date):
     return times, data
 
 
-def concat_era5(data_dir, initial_date, final_date):
+def concat_era5(raw_data_dir, trainig_years, training_months):
     # Generate the list of files to concatenate
     file_list = []
-    current_date = initial_date
-    num_months = (final_date.year - initial_date.year) * 12 + final_date.month - initial_date.month
-    tracker = tqdm(total=num_months, desc="Concatenating ERA5 files")
-    while current_date <= final_date:
-        file_pattern = f"era5_tp_{current_date.year}_{current_date.month:02d}.nc"
-        file_path = os.path.join(data_dir, file_pattern)
-        if os.path.exists(file_path):
-            file_list.append(file_path)
-        current_date = current_date.replace(day=1) + timedelta(days=32)
-        current_date = current_date.replace(day=1)
-        tracker.update(1)
+    tracker = tqdm(total=len(trainig_years)*len(training_months), desc="Concatenating ERA5 files")
+    for year in trainig_years:
+        for month in training_months:
+            file_pattern = f"era5_tp_{year}_{month:02d}.nc"
+            file_path = os.path.join(raw_data_dir, file_pattern)
+            tracker.update(1)
+            if os.path.exists(file_path):
+                file_list.append(file_path)
 
     # Open and concatenate the datasets
     datasets = [xr.open_dataset(file) for file in file_list]
@@ -124,12 +121,19 @@ def concat_era5(data_dir, initial_date, final_date):
     return times, lat, lon, data
 
 
-def concat_wrf(data_dir):
+def concat_wrf(data_dir, initial_date, final_date):
     datasets = []
-    for file in tqdm(sorted(os.listdir(data_dir)), desc="Concatenating WRF files"):
-        if file.startswith("wrfout_d03_"):
-            ds = xr.open_dataset(os.path.join(data_dir, file))[['PREC_ACC_NC']]
-            datasets.append(ds)
+    current_date = initial_date
+    print("Concatenating WRF files...")
+    num_iterations = ((final_date - initial_date).days+1)*24
+    with tqdm(total=num_iterations, desc="Processing", unit="file") as pbar:
+        while current_date <= final_date:
+            for h in range(24):
+                file = f"wrfout_d03_{current_date.strftime('%Y-%m-%d')}_{h:02d}:00:00"
+                ds = xr.open_dataset(os.path.join(data_dir, file))[['PREC_ACC_NC']]
+                datasets.append(ds)
+                pbar.update(1)
+            current_date += timedelta(days=1)
     return xr.concat(datasets, dim="Time")
 
 
@@ -151,3 +155,24 @@ def split_date_range(start_date, end_date, chunk_size):
         date_ranges.append((start_date, chunk_end_date))
         start_date = chunk_end_date + timedelta(days=1)
     return date_ranges
+
+
+def generate_date_list(start_date, end_date):
+    """
+    Generate a list of dates between start_date and end_date, inclusive.
+
+    Parameters:
+    - start_date (datetime): The initial date.
+    - end_date (datetime): The final date.
+
+    Returns:
+    - List[datetime]: A list of dates from start_date to end_date.
+    """
+    date_list = []
+    current_date = start_date
+    
+    while current_date <= end_date:
+        date_list.append(current_date)
+        current_date += timedelta(days=1)
+    
+    return date_list
