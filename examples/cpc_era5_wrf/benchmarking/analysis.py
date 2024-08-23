@@ -44,9 +44,6 @@ def main(filenames, time_idxs, colors, ls):
     extent = (lons.min(), lons.max(), lats.min(), lats.max())
     x_length, y_length = get_spatial_lengths(lons, lats)
 
-    # Prepare forecast dictionaries
-    forecasts = create_forecast_dicts(data, x_length, y_length)
-
     # Plotting
     script_dir = os.path.dirname(os.path.realpath(__file__))
     figs_dir = os.path.join(script_dir, "figs")
@@ -92,12 +89,11 @@ if __name__ == "__main__":
     dm_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts"
     filenames = {
         "ERA5": os.path.join(test_data_dir, "era5_nearest.h5"),
-        "WRF": os.path.join(test_data_dir, "wrf_2021.h5"),
-        "Diffusion": os.path.join(dm_data_dir, "light_50.h5"),
+        "WRF": os.path.join(test_data_dir, "wrf.h5"),
+        "Diffusion": os.path.join(dm_data_dir, "light_10.h5"),
         "CombiPrecip": os.path.join(test_data_dir, "cpc.h5"),
     }
-    time_idxs = slice(0, 48)
-    time_idxs = range(0, 48, 1)
+    time_idxs = range(48, 96)
     cmap = CURVE_CMAP
     colors = (
         cmap(0),
