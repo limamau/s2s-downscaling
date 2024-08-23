@@ -468,6 +468,7 @@ def plot_psds(
     ls=None,
     cmap=CURVE_CMAP,
     lambda_star=None,
+    psd_star=None,
 ):
     """
     Plot multiple PSDs on the same figure.
@@ -520,11 +521,15 @@ def plot_psds(
         
         plt.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i], ls=ls[i])
         
-    # ax.legend(fontsize='large')
-        
+    ax.legend(fontsize='medium')
+    
     if lambda_star is not None:
         ax.axvline(lambda_star, color='black', linestyle='--', label=r'$\lambda^*$')
         ax.text(lambda_star*1.1, 1e-5, r'$\lambda^\star$', fontsize='large')
+    
+    if psd_star is not None:
+        ax.axhline(psd_star, color='black', linestyle='--', label=r'$\sigma^*$')
+        ax.text(1e1, psd_star*1.1, r'$\sigma^\star$', fontsize='large')
     
     ax.set_frame_on(False)
     ax.grid(True, which='major', ls='--', alpha=0.5)
