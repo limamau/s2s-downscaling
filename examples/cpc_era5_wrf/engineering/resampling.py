@@ -91,6 +91,13 @@ def resample(
     # Aggregate and save    
     data = np.concatenate([low_data, medium_data, high_data, rest_data], axis=0)
     times = np.concatenate([low_times, medium_times, high_times, rest_times], axis=0)
+    
+    # Shuffle everything
+    idxs = np.arange(times.shape[0])
+    np.random.shuffle(idxs)
+    times = times[list(idxs)]
+    data = data[list(idxs),:,:]
+    
     write_dataset(times, lats, lons, data, os.path.join(train_data_dir, "cpc_resampled.h5"))
     
     print("Done!")

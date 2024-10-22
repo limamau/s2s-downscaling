@@ -96,31 +96,6 @@ def concat_cpc(data_dir, initial_date, final_date):
     return times, data
 
 
-def concat_era5(raw_data_dir, trainig_years, training_months):
-    # Generate the list of files to concatenate
-    file_list = []
-    tracker = tqdm(total=len(trainig_years)*len(training_months), desc="Concatenating ERA5 files")
-    for year in trainig_years:
-        for month in training_months:
-            file_pattern = f"era5_tp_{year}_{month:02d}.nc"
-            file_path = os.path.join(raw_data_dir, file_pattern)
-            tracker.update(1)
-            if os.path.exists(file_path):
-                file_list.append(file_path)
-
-    # Open and concatenate the datasets
-    datasets = [xr.open_dataset(file) for file in file_list]
-    combined_dataset = xr.concat(datasets, dim='time')
-
-    # Extract the variables
-    times = combined_dataset['time'].values
-    lat = combined_dataset['latitude'].values
-    lon = combined_dataset['longitude'].values
-    data = combined_dataset['tp'].values
-
-    return times, lat, lon, data
-
-
 def concat_wrf(data_dir, initial_date, final_date):
     datasets = []
     current_date = initial_date
@@ -158,16 +133,6 @@ def split_date_range(start_date, end_date, chunk_size):
 
 
 def generate_date_list(start_date, end_date):
-    """
-    Generate a list of dates between start_date and end_date, inclusive.
-
-    Parameters:
-    - start_date (datetime): The initial date.
-    - end_date (datetime): The final date.
-
-    Returns:
-    - List[datetime]: A list of dates from start_date to end_date.
-    """
     date_list = []
     current_date = start_date
     

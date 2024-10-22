@@ -9,7 +9,7 @@ from utils import create_folder, get_spatial_lengths
 def load_data(filenames):
     data = {}
     for name, file in filenames.items():
-        if name == "Diffusion":
+        if name == "Diffusion" or name == "QM+Diffusion":
             with h5py.File(file, "r") as f:
                 data[name] = {
                     "precip": f["precip"][:, 0, :, :],
@@ -35,7 +35,7 @@ def create_forecast_dicts(data, x_length, y_length):
     ]
 
 
-def main(filenames, time_idxs, colors, ls):
+def make_plots(filenames, time_idxs, colors, ls):
     # Load and preprocess data
     data = load_data(filenames)
 
@@ -82,18 +82,27 @@ def main(filenames, time_idxs, colors, ls):
     # Plot PP
     fig, _ = plot_pp(arrays, labels, colors=colors, ls=ls)
     fig.savefig(os.path.join(figs_dir, "pp_comparison.png"))
+    
+    
+def print_metrics(filenames):
+    # Wasserstein distance
+    data = load_data(filenames)
+    
+    # Extract spatial extents
+    lons, lats = data['CombiPrecip']['lons'], data['CombiPrecip']['lats']
+    x_length, y_length = get_spatial_lengths(lons, lats)
+    
 
-
-if __name__ == "__main__":
+def main():
     test_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
-    dm_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts"
+    simulations_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/simulations"
     filenames = {
         "ERA5": os.path.join(test_data_dir, "era5_nearest.h5"),
-        "WRF": os.path.join(test_data_dir, "wrf.h5"),
-        "Diffusion": os.path.join(dm_data_dir, "light_10.h5"),
+        "WRF": os.path.join(simulations_dir, "wrf/wrf.h5"),
+        "QM+Diffusion": os.path.join(simulations_dir, "diffusion/light_old_clip20_samples1_qm.h5"),
         "CombiPrecip": os.path.join(test_data_dir, "cpc.h5"),
     }
-    time_idxs = range(48, 96)
+    time_idxs = range(0, 96)
     cmap = CURVE_CMAP
     colors = (
         cmap(0),
@@ -108,4 +117,10 @@ if __name__ == "__main__":
         '-',
     )
 
-    main(filenames, time_idxs, colors, ls)
+    make_plots(filenames, time_idxs, colors, ls)
+    
+    print_metrics(filenames)
+
+
+if __name__ == "__main__":
+    main()

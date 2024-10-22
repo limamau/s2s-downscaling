@@ -2,10 +2,17 @@ import os, time, h5py
 import xarray as xr
 from config import get_config
 
+from engineering.spectrum import radial_low_pass_filter
 from debiasing.quantile_mapping import QuantileMapping
 from utils import write_dataset
 
-def debias(train_data_dir, test_data_dir, sim_data_dir, n_quantiles, method_point):
+def debias(
+    train_data_dir, 
+    test_data_dir, 
+    sim_data_dir, 
+    n_quantiles, 
+    method_point, 
+):
     # Read training data
     with h5py.File(os.path.join(train_data_dir, "era5_nearest_low-pass.h5"), "r") as f:
         lats = f["latitude"][:]
@@ -45,13 +52,35 @@ def debias(train_data_dir, test_data_dir, sim_data_dir, n_quantiles, method_poin
         
     # Correct bias with quantile mapping
     point_qm_test_data = point_qm.predict(era5_test_data)
+    point_qm_train_data = point_qm.predict(era5_train_data)
     
     # Save processed data
     write_dataset(
         test_times, lats, lons, point_qm_test_data, 
         os.path.join(sim_data_dir, "qm_nearest_low-pass_point.h5")
     )
+    write_dataset(
+        test_times, lats, lons, point_qm_train_data, 
+        os.path.join(sim_data_dir, "train_ref.h5")
+    )
     
+    
+def save_lowpass_prior(
+    test_data_dir,
+    sim_data_dir,
+):
+    # Read test data
+    with h5py.File(os.path.join(sim_data_dir, "qm_nearest_low-pass_point.h5"), "r") as f:
+        data = f["precip"][:,:,:]
+        lons = f["longitude"][:]
+        lats = f["latitude"][:]
+    times = xr.open_dataset(os.path.join(sim_data_dir, "era5_nearest_low-pass.h5")).time.values
+        
+    # Save processed data
+    write_dataset(
+        times, lats, lons, data,
+        os.path.join(sim_data_dir, "qm_low-pass.h5")
+    )
     
 def main():
     config = get_config()
@@ -61,7 +90,19 @@ def main():
     n_quantiles = config.n_quantiles
     method_point = config.method_point
     
-    debias(train_data_dir, test_data_dir, sim_data_dir, n_quantiles, method_point)
+    debias(
+        train_data_dir,
+        test_data_dir,
+        sim_data_dir,
+        n_quantiles,
+        method_point, 
+    )
+    
+    save_lowpass_prior(
+        test_data_dir,
+        sim_data_dir,
+    )
+    
 
 
 if __name__ == "__main__":

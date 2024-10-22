@@ -1,5 +1,5 @@
 import os, h5py
-from evaluation.plots import *
+from evaluation.plots import plot_maps, plot_psds, CURVE_CMAP as cmap
 from utils import get_spatial_lengths
 from config import get_config
 
@@ -39,6 +39,18 @@ def main():
     extents = (era5_extent, cpc_extent, cpc_extent, cpc_extent)
     fig, _ = plot_maps(arrays, titles, extents)
     fig.savefig(os.path.join(figs_dir, "maps.png"))
+    
+    # Plot PSDs
+    arrays = (era5, era5_nearest_lowpass, qm, cpc)
+    era5_spatial_lengths = get_spatial_lengths(era5_lons, era5_lats)
+    cpc_spatial_lengths = get_spatial_lengths(cpc_lons, cpc_lats)
+    spatial_lenghts = (era5_spatial_lengths, cpc_spatial_lengths, cpc_spatial_lengths, cpc_spatial_lengths)
+    colors = (cmap(0), cmap(1), cmap(4), cmap(2))
+    fig, _ = plot_psds(arrays, titles, spatial_lenghts, colors=colors, min_threshold=1e-10)
+    fig.savefig(os.path.join(figs_dir, "psds.png"))
+    
+    # Plot CDFs
+    
 
     
 if __name__ == "__main__":

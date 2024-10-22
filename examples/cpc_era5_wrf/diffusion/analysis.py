@@ -4,7 +4,7 @@ from evaluation.plots import plot_maps, plot_cdfs, plot_psds, plot_pp
 from utils import get_spatial_lengths
 
 
-def main(file_path: str, extent_file_path: str, time_idx: int):
+def run_analysis(file_path, extent_file_path, time_idxs, num_samples):
     # Read extent from file
     with h5py.File(extent_file_path, "r") as f:
         lons = f['longitude'][:]
@@ -14,40 +14,46 @@ def main(file_path: str, extent_file_path: str, time_idx: int):
     # Read the dataset from the .hdf5 file
     images = read_single_array(file_path, "precip")
 
-    # Get the image at the specified time index
-    samples = images[time_idx, :, :, :, 0]
+    titles = [f"Sample #{i+1}" for i in range(num_samples)]
+    extents = [extent] * num_samples
+    for time_idx in time_idxs:
+        # Get the samples at the specified time index
+        samples = images[time_idx, :, :, :]
 
-    # Plot maps
-    arrays = (samples[0], samples[1], samples[2], samples[3])
-    titles = ("a) Sample 1", "b) Sample 2", "c) Sample 3", "d) Sample 4")
-    extents = (extent,) * 4
-    fig, _ = plot_maps(arrays, titles, extents)
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    figs_dir = os.path.join(script_dir, "figs")
-    os.makedirs(figs_dir, exist_ok=True)
-    fig.savefig("figs/map_t{}.png".format(time_idx))
+        # Initialize arrays, titles, and extents for plotting
+        arrays = [samples[i] for i in range(num_samples)]
+
+        # Plot maps
+        fig, _ = plot_maps(arrays, titles, extents)
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        figs_dir = os.path.join(script_dir, "figs")
+        os.makedirs(figs_dir, exist_ok=True)
+        fig.savefig(os.path.join(figs_dir, f"ensembles_t{time_idx}.png"))
     
     # Plot CDFs
-    samples = images[:, :, :, :, 0]
-    arrays = (samples[:,0], samples[:,1], samples[:,2], samples[:,3])
-    titles = ("Sample 1", "Sample 2", "Sample 3", "Sample 4")
+    arrays = [images[:, i] for i in range(num_samples)]
     fig, _ = plot_cdfs(arrays, titles)
-    fig.savefig("figs/cdf.png")
+    fig.savefig(os.path.join(figs_dir, "cdf.png"))
     
     # Plot PSDs
     spatial_lengths = get_spatial_lengths(lons, lats)
-    spatial_lengths = (spatial_lengths,) * 4
+    spatial_lengths = [spatial_lengths] * num_samples
     fig, _ = plot_psds(arrays, titles, spatial_lengths)
-    fig.savefig("figs/psd.png")
+    fig.savefig(os.path.join(figs_dir, "psd.png"))
     
     # Plot PP
     fig, _ = plot_pp(arrays, titles)
-    fig.savefig("figs/pp.png")
+    fig.savefig(os.path.join(figs_dir, "pp.png"))
     
+
+def main():
+    file_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/simulations/diffusion/heavy_cli40_ens10.h5"
+    test_file_path = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data/cpc.h5"
+    time_idxs = [i for i in range(48)]
+    num_samples = 3
+    
+    run_analysis(file_path, test_file_path, time_idxs, num_samples)
+
     
 if __name__ == "__main__":
-    experiment_name = "light"
-    file_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts/light_50.h5"
-    test_file_path = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data/cpc.h5"
-    time_idx = 16
-    main(file_path, test_file_path, time_idx)
+    main()

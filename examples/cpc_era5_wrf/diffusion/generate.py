@@ -1,55 +1,17 @@
-import jax, time
+import jax, os
 import jax.numpy as jnp
-import xarray as xr
+from tqdm import tqdm
 
 from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
-from swirl_dynamics.data.hdf5_utils import read_single_array
 from utils import write_dataset
 
 import configs
-
-def get_dataset_info(file_path: str, key: str, split:float):
-    # Read the dataset from the .hdf5 file.
-    images = read_single_array(file_path, key)
-
-    # Determine the split indices.
-    num_images = images.shape[0]
-    if split > 0:
-        end_idx = int(num_images * split)
-        images = images[:end_idx]
-    elif split < 0:
-        start_idx = int(num_images * (1 + split))
-        images = images[start_idx:]
-
-    # Normalize the images
-    mu = jnp.mean(images)
-    sigma = jnp.std(images)
-    images = (images - mu) / sigma
-
-    return images.shape, mu, sigma
+from dataset_utils import get_dataset_info, get_test_dataset_info
 
 
-def get_test_dataset_info(file_path: str, key: str):
-    # Read the dataset from the .hdf5 file.
-    images = read_single_array(file_path, key)
-    lons = read_single_array(file_path, "longitude")
-    lats = read_single_array(file_path, "latitude")
-    times = xr.open_dataset(file_path).time.values
-
-    # Normalize the images
-    mu = jnp.mean(images)
-    sigma = jnp.std(images)
-    images = (images - mu) / sigma
-
-    # Expand dims
-    ds = jnp.expand_dims(images, axis=-1)
-
-    return ds, lons, lats, times
-
-
-def main(config, test_file_path, save_path, clip_max, num_samples):
+def generate(config, file_path, save_path, clip_max, num_samples):
     # Get denoiser model back
     denoiser_model = dfn_lib.PreconditionedDenoiserUNet(
         out_channels=1,
@@ -88,9 +50,8 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
     
     # Get train dataset info
     train_shape, train_mean, train_std = get_dataset_info(
-        file_path=config.file_path,
+        file_path=config.train_file_path,
         key="precip",
-        split=0.75,
     )
 
     # Sampler
@@ -104,7 +65,7 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
         denoise_fn=denoise_fn,
         guidance_transforms=(),
         apply_denoise_at_end=True,
-        return_full_paths=False,  # Set to `True` if the full sampling paths are needed
+        return_full_paths=False, # Set to `True` if the full sampling paths are needed
     )
     
     # JIT sampler and sample
@@ -112,7 +73,7 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
     
     # Test dataset
     test_ds, lons, lats, times = get_test_dataset_info(
-        file_path=test_file_path,
+        file_path=file_path,
         key="precip",
     )
     
@@ -121,7 +82,7 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
 
     # Iterate over the test dataset and generate samples
     rng = jax.random.PRNGKey(0)
-    for i in range(test_ds.shape[0]):
+    for i in tqdm(range(test_ds.shape[0])):
         rng, rng_step = jax.random.split(rng)
         # Generate samples from the test dataset
         samples = generate(
@@ -145,26 +106,20 @@ def main(config, test_file_path, save_path, clip_max, num_samples):
     )
     
 
+def main():
+    model_config = configs.heavy.get_config()
+    generation_config = configs.generation.get_config()
+    
+    prior_file_path = generation_config.prior_file_path
+    clip_max = generation_config.clip_max
+    num_samples = generation_config.num_samples
+    save_file_path = os.path.join(
+        generation_config.save_dir, 
+        f"{model_config.experiment_name}_cli{clip_max}_ens{num_samples}.h5"
+    )
+    
+    generate(model_config, prior_file_path, save_file_path, clip_max, num_samples)
+
+
 if __name__ == "__main__":
-    # Config
-    config = configs.light.get_config()
-    
-    # Additional file paths
-    test_file_path = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data/cpc.h5"
-    
-    # Directory to store the training checkpoints
-    workdir = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/s2s-downscaling/examples/cpc_era5_wrf/diffusion/{config.experiment_name}"
-    
-    # Noise up which to noise-denoise
-    clip_max = 50
-    
-    # Number of samples
-    num_samples = 4
-    
-    # Path to save the generated forecasts
-    save_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/generated_forecasts/{config.experiment_name}_{clip_max}.h5"
-    
-    start_time = time.time()
-    main(config, test_file_path, save_path, clip_max, num_samples)
-    final_time = time.time() - start_time
-    print(f"Total time taken: {final_time} seconds.")
+    main()
