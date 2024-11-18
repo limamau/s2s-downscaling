@@ -293,6 +293,8 @@ def write_dataset(times, lats, lons, data, filename):
     """
     Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
     """
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
     if len(data.shape) == 4:
         _write_ensemble_dataset(times, lats, lons, data, filename)
     elif len(data.shape) == 3:
