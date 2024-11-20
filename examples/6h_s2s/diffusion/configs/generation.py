@@ -7,8 +7,8 @@ def get_config():
         base_dir, 
         "data/test_data/s2s_nearest_low-pass.h5"
     )
-    config.save_dir = os.path.join(base_dir, "data/simulations/diffusion/s2s")
-    config.clip_max = 40
+    config.save_dir = os.path.join(base_dir, "data/simulations/s2s/diffusion")
+    config.clip_max = 100
     config.num_samples = 4
     
     return config

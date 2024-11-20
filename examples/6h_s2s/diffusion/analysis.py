@@ -47,7 +47,7 @@ def run_analysis(file_path, extent_file_path, time_idxs, num_samples):
     
 
 def main():
-    file_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/simulations/diffusion/s2s/light_cli40_ens4.h5"
+    file_path = f"/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/simulations/s2s/diffusion/light_cli100_ens4.h5"
     test_file_path = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data/cpc.h5"
     time_idxs = [i for i in range(48)]
     num_samples = 3
