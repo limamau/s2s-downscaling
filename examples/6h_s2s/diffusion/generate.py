@@ -1,14 +1,16 @@
-import jax, os
+import h5py, os, tomllib
+import jax
 import jax.numpy as jnp
+import numpy as np
 from tqdm import tqdm
 
 from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
-from utils import write_dataset
+from utils import write_precip_to_h5
 
 import configs
-from dataset_utils import get_dataset_info, get_test_dataset_info
+from dataset_utils import get_dataset_info, get_normalized_test_dataset
 
 
 def generate(config, file_path, save_path, clip_max, num_samples):
@@ -72,52 +74,99 @@ def generate(config, file_path, save_path, clip_max, num_samples):
     generate = jax.jit(sampler.generate, static_argnames=('num_samples',))
     
     # Test dataset
-    test_ds, lons, lats, times = get_test_dataset_info(
+    test_ds = get_normalized_test_dataset(
         file_path=file_path,
         key="precip",
     )
     
-    # Forecast samples
-    samples_list = []
+    # Calculate the new shape for the samples array
+    num_lead_times, num_ensembles, num_times, num_lats, num_lons, num_channels = test_ds.shape
+    new_shape = (
+        num_lead_times,
+        num_ensembles*num_samples,
+        num_times,
+        num_lats,
+        num_lons,
+        num_channels,
+    )
 
-    # Iterate over the test dataset and generate samples
+    # Preallocate the array for the samples
+    samples_array = jnp.zeros(new_shape)
+
+    # Forecast samples with tqdm tracker
     rng = jax.random.PRNGKey(0)
-    for i in tqdm(range(test_ds.shape[0])):
-        rng, rng_step = jax.random.split(rng)
-        # Generate samples from the test dataset
-        samples = generate(
-            init_sample=test_ds[i],
-            rng=rng_step,
-            num_samples=num_samples,
-        ) * train_std + train_mean
-        
-        # Append samples to the list
-        samples_list.append(samples)
-    
-    # Convert list to a single numpy array
-    forecasts = jnp.array(samples_list)[:,:,:,:,0]
+
+    # Samples generation loop
+    total_iterations = num_lead_times * num_ensembles * num_times
+    with tqdm(total=total_iterations, desc="Generating samples") as pbar:
+        for lead_time_idx in range(num_lead_times):
+            for ensemble_idx in range(num_ensembles):
+                for time_idx in range(num_times):
+                    rng, rng_step = jax.random.split(rng)
+
+                    # Generate samples
+                    samples = generate(
+                        init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
+                        rng=rng_step,
+                        num_samples=num_samples,
+                    ) * train_std + train_mean
+
+                    # Save the samples into the preallocated array
+                    start_idx = ensemble_idx * num_samples
+                    end_idx = start_idx + num_samples
+                    samples_array = samples_array.at[
+                        lead_time_idx, start_idx:end_idx, time_idx,
+                    ].set(samples)
+
+                    pbar.update(1)
     
     # Clip zeros
-    forecasts = jnp.clip(forecasts, min=0, max=None)
-
+    samples = jnp.clip(samples_array[...,0], min=0, max=None)
+    
     # Save all samples in a single HDF5 file
-    write_dataset(
-        times, lats, lons, forecasts, save_path,
+    with h5py.File(file_path, "r") as f:
+        lead_times = f["lead_time"][:]
+        ensembles = f["ensemble"][:]
+        times = f["time"][:]
+        lats = f["latitude"][:]
+        lons = f["longitude"][:]
+    
+    dims_dict = {
+        "lead_time": lead_times,
+        "ensemble": np.arange(len(ensembles) * num_samples),
+        "time": times,
+        "latitude": lats,
+        "longitude": lons,
+    }
+    
+    write_precip_to_h5(
+        dims_dict, samples, save_path,
     )
     
 
 def main():
-    model_config = configs.light.get_config()
-    generation_config = configs.generation.get_config()
+    # directory paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
+        dirs = tomllib.load(f)
+    base = dirs["main"]["base"]
+    train_data_dir = os.path.join(base, dirs["subs"]["train"])
+    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
+    test_data_dir = os.path.join(base, dirs["subs"]["test"])
+    simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
     
-    prior_file_path = generation_config.prior_file_path
-    clip_max = generation_config.clip_max
-    num_samples = generation_config.num_samples
+    # extra configurations
+    model_config = configs.light_longer.get_config(train_data_dir, validation_data_dir)
+    prior_file_path = os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5")
+    clip_max = 100
+    num_samples = 4
     save_file_path = os.path.join(
-        generation_config.save_dir, 
-        f"{model_config.experiment_name}_cli{clip_max}_ens{num_samples}.h5"
+        simulations_dir,
+        "diffusion",
+        f"{model_config.experiment_name}_cli{clip_max}_ens{num_samples}.h5",
     )
     
+    # main call
     generate(model_config, prior_file_path, save_file_path, clip_max, num_samples)
 
 

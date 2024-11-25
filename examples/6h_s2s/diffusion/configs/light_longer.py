@@ -2,7 +2,7 @@ import os, ml_collections
 
 def get_config(train_data_dir, validation_data_dir):
     config = ml_collections.ConfigDict()
-    config.experiment_name = "light"
+    config.experiment_name = "light_longer"
     
     # File paths and keys
     config.train_file_path = os.path.join(train_data_dir, "cpc_6h_resampled.h5")

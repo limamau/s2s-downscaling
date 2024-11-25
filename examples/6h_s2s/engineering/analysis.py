@@ -1,4 +1,4 @@
-import os, h5py
+import os, h5py, tomllib
 import xarray as xr
 import numpy as np
 
@@ -111,7 +111,7 @@ def plot(test_data_dir, time):
     fig.savefig(os.path.join(figs_dir, "psds_var2.png"))
     
     # Add white noise 3
-    var = 2000
+    var = 1000
     white_noise = np.random.rand(*cpc_data.shape) * var
     arrays = (
         lowpass_data + white_noise,
@@ -128,8 +128,17 @@ def plot(test_data_dir, time):
     
     
 def main():
-    test_data_dir = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/mlima/data/test_data"
+    # directory paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
+        dirs = tomllib.load(f)
+    base = dirs["main"]["base"]
+    test_data_dir = os.path.join(base, dirs["subs"]["test"])
+    
+    # extra configurations
     time = 2
+    
+    # main call
     plot(test_data_dir, time)
 
 

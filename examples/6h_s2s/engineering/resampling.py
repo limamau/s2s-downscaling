@@ -1,5 +1,4 @@
-import os
-import h5py
+import os, h5py, tomllib
 import numpy as np
 
 from utils import write_dataset
@@ -104,8 +103,15 @@ def resample(
         
 
 def main():
+    # directory paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
+        dirs = tomllib.load(f)
+    base = dirs["main"]["base"]
+    train_data_dir = os.path.join(base, dirs["subs"]["train"])
+    
+    # extra configurations
     config = get_config()
-    train_data_dir = config.train_data_dir
     low_percentile = config.low_percentile
     low_divisor = config.low_divisor
     medium_percentile = config.medium_percentile
@@ -113,6 +119,7 @@ def main():
     high_percentile = config.high_percentile
     high_multiplier = config.high_multiplier
     
+    # main call
     resample(
         train_data_dir,
         low_percentile,

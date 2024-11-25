@@ -1,7 +1,7 @@
-from clu import metric_writers
-import jax, h5py
-import optax
+import h5py, os, tomllib
+import jax, optax
 import orbax.checkpoint as ocp
+from clu import metric_writers
 
 from swirl_dynamics import templates
 from swirl_dynamics.lib import diffusion as dfn_lib
@@ -128,7 +128,16 @@ def train(
 
 
 def main():
-    config = configs.light.get_config()
+    # directory paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
+        dirs = tomllib.load(f)
+    base = dirs["main"]["base"]
+    train_data_dir = os.path.join(base, dirs["subs"]["train_data_dir"])
+    validation_data_dir = os.path.join(base, dirs["subs"]["validation_data_dir"])
+    
+    # extra configurations
+    config = configs.light.get_config(train_data_dir, validation_data_dir)
     train_file_path = config.train_file_path
     validation_file_path = config.validation_file_path
     workdir = config.workdir
@@ -147,7 +156,8 @@ def main():
     ema_decay = config.ema_decay
     ckpt_interval = config.ckpt_interval
     max_ckpt_to_keep = config.max_ckpt_to_keep
-    
+
+    # main call    
     train(
         train_file_path,
         validation_file_path,

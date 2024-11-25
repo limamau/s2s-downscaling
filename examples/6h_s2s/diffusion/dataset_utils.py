@@ -41,19 +41,13 @@ def get_dataset_info(file_path: str, key: str, apply_log: bool=False):
     return images.shape, mu, sigma
 
 
-def get_test_dataset_info(file_path: str, key: str, apply_log: bool=False):
-    # Read the dataset from the .hdf5 file.
+def get_normalized_test_dataset(file_path: str, key: str, apply_log: bool=False):
     images = read_single_array(file_path, key)
-    lons = read_single_array(file_path, "longitude")
-    lats = read_single_array(file_path, "latitude")
-    times = xr.open_dataset(file_path).time.values
 
-    # Normalize the images
     mu = jnp.mean(images)
     sigma = jnp.std(images)
     images = (images - mu) / sigma
 
-    # Expand dims
     ds = jnp.expand_dims(images, axis=-1)
 
-    return ds, lons, lats, times
+    return ds

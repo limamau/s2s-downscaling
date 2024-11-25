@@ -2,14 +2,11 @@
 # examples/cpc_era5_wrf/engineering/engineer_cpc.py for
 # simplicity :D
 
-import os, h5py
+import os, h5py, tomllib
 import numpy as np
-import pandas as pd
 import xarray as xr
-from datetime import datetime, timedelta
-from tqdm import tqdm
 
-from utils import write_dataset
+from utils import write_precip_to_h5
 
 from configs.cpc import get_config
 
@@ -42,7 +39,7 @@ def aggregate_and_save(file_dir, pre_file_name, file_name):
     agg_times = []
     for agg_time in summer_range:
         # Find indices in `times` that match the current 6-hour window
-        time_indices = [i for i, t in enumerate(times) if agg_time <= t < agg_time + np.timedelta64(6, 'h')]
+        time_indices = [i for i, t in enumerate(times) if agg_time - np.timedelta64(6, 'h') < t <= agg_time]
         
         # Check if the 6-hour window has complete data
         if len(time_indices) == 6:
@@ -51,25 +48,33 @@ def aggregate_and_save(file_dir, pre_file_name, file_name):
             agg_times.append(agg_time)
 
     # Save combined train and validation data to a single file
-    os.makedirs(file_dir, exist_ok=True)
-    write_dataset(
-        np.array(agg_times),
-        lats,
-        lons,
-        np.array(agg_precip),
+    dims_dict = {
+        "time": np.array(agg_times),
+        "latitude": lats,
+        "longitude": lons
+    }
+    write_precip_to_h5(
+        dims_dict, np.array(agg_precip),
         os.path.join(file_dir, file_name)
     )
 
 
 def main():
-    config = get_config()
+    # directory paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
+        dirs = tomllib.load(f)
+    base = dirs["main"]["base"]
+    train_data_dir = os.path.join(base, dirs["subs"]["train"])
+    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
+    test_data_dir = os.path.join(base, dirs["subs"]["test"])
     
-    test_data_dir = config.test_data_dir
-    validation_data_dir = config.validation_data_dir
-    train_data_dir = config.train_data_dir
+    # extra configurations
+    config = get_config()
     cpc_preprocessed_file_name = config.cpc_preprocessed_file_name
     cpc_aggregated_file_name = config.cpc_aggregated_file_name
     
+    # main calls
     aggregate_and_save(test_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
     aggregate_and_save(validation_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
     aggregate_and_save(train_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
