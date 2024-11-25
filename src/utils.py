@@ -1,10 +1,10 @@
 import os, shutil
 import jax
-import jax
 import numpy as np
 import jax.numpy as jnp
 import xarray as xr
 from math import radians, sin, cos, sqrt, atan2
+from typing import Dict
 
 # Utils function in (almost) alfabetical order
 
@@ -300,4 +300,24 @@ def write_dataset(times, lats, lons, data, filename):
     elif len(data.shape) == 3:
         _write_deterministic_dataset(times, lats, lons, data, filename)
     else:
-        raise ValueError("Data must have either 4 (deterministic) or 5 (ensemble) dimensions.")
+        raise ValueError("Data must have either 4 (deterministic) or 5 (ensemble) dimensions.")    
+    
+
+def write_precip_to_h5(dims: Dict[str, np.ndarray], data: np.ndarray, filename: str):
+    """
+    Writes the input data to a .h5 file at the specified filename following the specified dimensions.
+    """
+    dim_keys = list(dims.keys())
+    
+    if data.shape != tuple(len(dims[dim]) for dim in dim_keys):
+        raise ValueError("Shape of `data` does not match the dimensions in `dims`.")
+
+    ds = xr.Dataset(
+        {
+            "precip": (dim_keys, data)
+        },
+        coords=dims
+    )
+
+    # Write to file
+    ds.to_netcdf(filename, engine="h5netcdf")
