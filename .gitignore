@@ -10,3 +10,5 @@ src/s2s_downscaling.egg-info
 *_backup.py
 
 venv/
+
+dirs.toml
