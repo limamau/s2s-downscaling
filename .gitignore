@@ -11,4 +11,4 @@ src/s2s_downscaling.egg-info
 
 venv/
 
-dirs.toml
+examples/*/dirs.toml
