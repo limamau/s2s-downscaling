@@ -1,3 +1,3 @@
 from . import cpc
-from . import s2s
+from . import det_s2s
 from . import resampling

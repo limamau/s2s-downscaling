@@ -6,7 +6,7 @@ from engineering.regridding import interpolate_data
 from engineering.spectrum import get_1dpsd, radial_low_pass_filter
 from utils import write_precip_to_h5, get_spatial_lengths
 
-from configs.s2s import get_config
+from configs.det_s2s import get_config
 
 
 def cut_det_s2s_data_and_coords(raw_s2s_data, raw_s2s_lats, raw_s2s_lons, cpc_lats, cpc_lons):
@@ -51,7 +51,7 @@ def get_idxs_to_keep(times, bound_dates):
     return idxs_to_keep
 
 
-def read_and_concatenate_s2s_precip(lead_time_files, storm_dates):
+def aggregate_det_s2s_precip(lead_time_files, storm_dates):
     lead_times = []
     times = []
     raw_s2s_lats = None
@@ -73,6 +73,7 @@ def read_and_concatenate_s2s_precip(lead_time_files, storm_dates):
                 raw_s2s_lats = ds.latitude.values
                 raw_s2s_lons = ds.longitude.values
                 raw_s2s_data = precip
+                print("First precip shape:", raw_s2s_data.shape)
                 times = ds.time.values[idxs_to_keep]
             
             elif first:
@@ -117,7 +118,7 @@ def process_test_data(test_data_dir, storm_dates, lead_time_files, hourly_resolu
         cpc_lats = f["latitude"][:]
     
     # Aggregate S2S data
-    lead_times, times, raw_s2s_lats, raw_s2s_lons, raw_s2s_data = read_and_concatenate_s2s_precip(
+    lead_times, times, raw_s2s_lats, raw_s2s_lons, raw_s2s_data = aggregate_det_s2s_precip(
         lead_time_files, storm_dates,
     )
     
