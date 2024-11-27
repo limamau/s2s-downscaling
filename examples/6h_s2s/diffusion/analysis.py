@@ -52,8 +52,8 @@ def main():
     with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
         dirs = tomllib.load(f)
     base = dirs["main"]["base"]
-    test_data_dir = os.path.join(base, dirs["subs"]["train_data_dir"])
-    simulations_dir = os.path.join(base, dirs["subs"]["validation_data_dir"])
+    test_data_dir = os.path.join(base, dirs["subs"]["train"])
+    simulations_dir = os.path.join(base, dirs["subs"]["validation"])
     
     # extra configurations
     sim_path = os.path.join(simulations_dir, "diffusion/light_cli100_ens4.h5")

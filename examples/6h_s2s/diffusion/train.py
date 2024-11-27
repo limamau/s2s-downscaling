@@ -133,8 +133,8 @@ def main():
     with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
         dirs = tomllib.load(f)
     base = dirs["main"]["base"]
-    train_data_dir = os.path.join(base, dirs["subs"]["train_data_dir"])
-    validation_data_dir = os.path.join(base, dirs["subs"]["validation_data_dir"])
+    train_data_dir = os.path.join(base, dirs["subs"]["train"])
+    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
     
     # extra configurations
     config = configs.light.get_config(train_data_dir, validation_data_dir)
