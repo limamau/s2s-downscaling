@@ -1,6 +1,6 @@
 import os, ml_collections, numpy as np
 
-def get_config(raw_data_dir):
+def get_config(raw_data_dir, test_data_dir):
     config = ml_collections.ConfigDict()
     config.storm_dates = (
         (np.datetime64('2018-06-11'), np.datetime64('2018-06-12')),
@@ -20,5 +20,6 @@ def get_config(raw_data_dir):
             os.path.join(raw_data_dir, "det_sfc_2021-06-07_tp.nc"),
         ),
     }
+    config.cpc_file = os.path.join(test_data_dir, f"cpc_6h.h5")
     
     return config

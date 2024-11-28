@@ -1,6 +1,5 @@
 import numpy as np
-from utils import normalize_data
-
+from utils import normalize_data, get_spatial_lengths
 
 def _get_2d_spectrum_info(data, x_length, y_length):
     # Get spatial dimensions
@@ -14,6 +13,24 @@ def _get_2d_spectrum_info(data, x_length, y_length):
     fft_data = np.fft.fft2(data, axes=(1,2))
     
     return (Ny, Nx), (kx, ky), fft_data
+
+
+def low_pass_filter(data, data_lengths, ref_lengths):
+    # extract the shape of the grid and data
+    original_shape = data.shape
+    extra_dims = original_shape[:-3]  # dimensions before time, lat, lon
+    
+    # prepare the output array
+    new_data = np.zeros(data.shape, dtype=data.dtype)
+    
+    # iterate over all extra dimensions
+    for idx in np.ndindex(*extra_dims):
+        sliced_data = data[idx]
+        k, _ = get_1dpsd(sliced_data, *ref_lengths)
+        cutoff = np.max(k)
+        new_data[idx] = radial_low_pass_filter(sliced_data, cutoff, *data_lengths)
+        
+    return new_data
 
 
 def get_1dpsd(data, x_length, y_length, data_std=1, rotation_angle=0):
