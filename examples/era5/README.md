@@ -1,3 +1,5 @@
+Note: this example is deprecated since the introduction of the new class SurfaceData and it's sub-classes.
+
 In this example, precipitation from [ERA5](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=form) reanalysis data data is downscaled to the resolution of [CombiPrecip](https://www.meteoswiss.admin.ch/services-and-publications/service/weather-and-climate-products/combiprecip.html).
 
 The structure of the example is:
