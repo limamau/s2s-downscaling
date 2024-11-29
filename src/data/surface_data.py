@@ -229,7 +229,7 @@ class ForecastSurfaceData(SurfaceData):
         ds.to_netcdf(filename, engine='h5netcdf')
         
         
-class ForecastEnsembleSurfaceData(EnsembleSurfaceData):
+class ForecastEnsembleSurfaceData(SurfaceData):
     def __init__(
         self, 
         lead_time: np.ndarray,
@@ -239,8 +239,9 @@ class ForecastEnsembleSurfaceData(EnsembleSurfaceData):
         longitude: np.ndarray,
         **variables: np.ndarray,
     ):
-        super().__init__(time, latitude, longitude, number, **variables)
+        super().__init__(time, latitude, longitude, **variables)
         self.lead_time = lead_time
+        self.number = number
 
 
     @classmethod

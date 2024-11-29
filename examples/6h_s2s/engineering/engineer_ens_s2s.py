@@ -2,14 +2,16 @@ import copy, os, tomllib
 import numpy as np
 import xarray as xr
 
-from data.surface_data import SurfaceData, ForecastSurfaceData
+from data.surface_data import SurfaceData, ForecastEnsembleSurfaceData
 
 from engineering_utils import get_s2s_idxs_to_keep
-from configs.det_s2s import get_config
+from configs.ens_s2s import get_config
 
 
-def aggregate_det_s2s_precip(lead_time_files, storm_dates):
+# TODO: break this function with a for loop to aleviate the processing
+def aggregate_ens_s2s_precip(lead_time_files, storm_dates):
     lead_times = []
+    numbers = []
     times = []
     raw_s2s_lats = None
     aux_raw_s2s_data = None
@@ -26,9 +28,11 @@ def aggregate_det_s2s_precip(lead_time_files, storm_dates):
             idxs_to_keep = get_s2s_idxs_to_keep(ds.time.values, storm_dates[i])
             idxs_to_keep_diff = np.concatenate([np.array([idxs_to_keep[0]-1]), idxs_to_keep])
             precip = np.expand_dims(np.diff(ds.tp.values[idxs_to_keep_diff], axis=0), axis=0)
+            precip = np.reshape(precip, (1, precip.shape[2], precip.shape[1], *precip.shape[3:]))
             precip = precip / 6
             
             if raw_s2s_lats is None:
+                numbers = ds.number.values
                 raw_s2s_lats = ds.latitude.values
                 raw_s2s_lons = ds.longitude.values
                 raw_s2s_precip = precip
@@ -36,14 +40,14 @@ def aggregate_det_s2s_precip(lead_time_files, storm_dates):
                 times = ds.time.values[idxs_to_keep]
             
             elif first:
-                raw_s2s_precip = np.concatenate([raw_s2s_precip, precip], axis=1)
+                raw_s2s_precip = np.concatenate([raw_s2s_precip, precip], axis=2)
                 times = np.concatenate([times, ds.time.values[idxs_to_keep]])
             
             else:
                 if aux_raw_s2s_data is None:
                     aux_raw_s2s_data = precip
                 else:
-                    aux_raw_s2s_data = np.concatenate([aux_raw_s2s_data, precip], axis=1)
+                    aux_raw_s2s_data = np.concatenate([aux_raw_s2s_data, precip], axis=2)
         
         if not first:
             raw_s2s_precip = np.concatenate([raw_s2s_precip, aux_raw_s2s_data], axis=0)
@@ -51,8 +55,9 @@ def aggregate_det_s2s_precip(lead_time_files, storm_dates):
             
         first = False
     
-    return ForecastSurfaceData(
-        lead_times, times, raw_s2s_lats, raw_s2s_lons, precip=raw_s2s_precip,
+    print("precip shape:", raw_s2s_precip.shape)
+    return ForecastEnsembleSurfaceData(
+        lead_times, numbers, times, raw_s2s_lats, raw_s2s_lons, precip=raw_s2s_precip,
     )
 
 
@@ -61,7 +66,7 @@ def run_engineering(storm_dates, lead_time_files, cpc_file):
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
         
     # Load S2S
-    s2s = aggregate_det_s2s_precip(lead_time_files, storm_dates)
+    s2s = aggregate_ens_s2s_precip(lead_time_files, storm_dates)
     extent = cpc.get_extent()
     s2s.unflip_latlon()
     s2s.cut_data(extent)
@@ -97,9 +102,9 @@ def main():
     
     # main calls
     s2s, nearest_s2s, nearest_lowpass_s2s = run_engineering(storm_dates, lead_time_files, cpc_file)
-    s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s.h5"))
-    nearest_s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s_nearest.h5"))
-    nearest_lowpass_s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5"))
+    s2s.save_to_h5(os.path.join(test_data_dir, "ens_s2s.h5"))
+    nearest_s2s.save_to_h5(os.path.join(test_data_dir, "ens_s2s_nearest.h5"))
+    nearest_lowpass_s2s.save_to_h5(os.path.join(test_data_dir, "ens_s2s_nearest_low-pass.h5"))
 
 
 if __name__ == "__main__":

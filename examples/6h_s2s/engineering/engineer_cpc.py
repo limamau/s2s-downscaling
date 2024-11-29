@@ -10,7 +10,7 @@ from utils import write_precip_to_h5
 
 from configs.cpc import get_config
 
-
+# TODO: refactor this code to use surface_data.py
 def generate_summer_range(time):
     # Generate 6-hour intervals within summer months, from the first to the last datetime in `time`
     start = time[0]
