@@ -219,11 +219,11 @@ class ForecastSurfaceData(SurfaceData):
     def load_from_h5(cls, filename, variables_names):
         """Load data from an HDF5 file using h5py for dimensions."""
         with h5py.File(filename, 'r') as f:
-            lead_time = f['lead_time'][:]
             latitude = f['latitude'][:]
             longitude = f['longitude'][:]
             for var_name in variables_names:
                 setattr(cls, var_name, f[var_name][...])
+        lead_time = xr.open_dataset(filename, engine='h5netcdf').lead_time.values
         time = xr.open_dataset(filename, engine='h5netcdf').time.values
 
         return cls(
@@ -271,12 +271,12 @@ class ForecastEnsembleSurfaceData(SurfaceData):
     def load_from_h5(cls, filename, variables_names):
         """Load data from an HDF5 file using h5py for dimensions."""
         with h5py.File(filename, 'r') as f:
-            lead_time = f['lead_time'][:]
             number = f['number'][:]
             latitude = f['latitude'][:]
             longitude = f['longitude'][:]
             for var_name in variables_names:
                 setattr(cls, var_name, f[var_name][...])
+        lead_time = xr.open_dataset(filename, engine='h5netcdf').lead_time.values
         time = xr.open_dataset(filename, engine='h5netcdf').time.values
 
         return cls(

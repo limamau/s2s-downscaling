@@ -4,7 +4,59 @@ import matplotlib.pyplot as plt
 
 from data.surface_data import SurfaceData, ForecastSurfaceData, ForecastEnsembleSurfaceData
 from evaluation.plots import plot_maps, CURVE_CMAP as cmap
+from utils import get_cdf
 
+
+def plot_left_tale(
+    bins_range,
+    cpc_cdf,
+    det_cdf,
+    ens_cdf,
+    lead_time_name,
+    figs_dir,
+):
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+
+    ax1.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax1.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax1.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
+    
+    ax1.set_xlim(0, 5)
+    ax1.set_ylim(0, 1.0)
+    ax1.set_xlabel("Precipitation (mm/h)")
+    ax1.set_ylabel("Cumulative distribution function")
+
+    ax1.legend()
+    fig1.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_left.png"))
+
+
+def plot_right_tale(
+    bins_range,
+    cpc_cdf,
+    det_cdf,
+    ens_cdf,
+    lead_time_name,
+    figs_dir,
+):
+    # Create second figure and axis
+    fig2, ax2 = plt.subplots(figsize=(8, 5))
+
+    # Set axis limits and labels for second figure
+    ax2.set_xscale("log")
+    ax2.set_yscale("log")
+    ax2.set_xlim(0.3, None)
+    ax2.set_ylim(0.8, 1.0)
+    ax2.set_xlabel("Precipitation (mm/h)")
+    ax2.set_ylabel("Cumulative distribution function")
+
+    # Plot CDFs for second figure
+    ax2.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax2.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax2.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
+    
+    # Add legend and save second figure
+    ax2.legend()
+    fig2.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_right.png"))
 
 def plot_lead_time_distribution(
     cpc,
@@ -14,42 +66,26 @@ def plot_lead_time_distribution(
     bins=100,
 ):
     # get data
-    cpc_data = cpc.precip
-    det_s2s_data = lowpass_det_s2s.precip[lead_time_idx]
-    ens_s2s_data = lowpass_ens_s2s.precip[lead_time_idx]
+    cpc_data = cpc.precip.flatten()
+    det_s2s_data = lowpass_det_s2s.precip[lead_time_idx].flatten()
+    ens_s2s_data = (lowpass_ens_s2s.precip[lead_time_idx].flatten())
+
+    # compute CDFs
+    bins_range = np.linspace(0, 5, bins)
+    cpc_cdf = get_cdf(cpc_data, bins_range)
+    det_cdf = get_cdf(det_s2s_data, bins_range)
+    ens_cdf = get_cdf(ens_s2s_data, bins_range)
     
-    # create figure and axis
-    fig, ax = plt.subplots(figsize=(8, 4))
-    
-    # plot histograms
-    ax.hist(
-        cpc_data.flatten(), bins=bins, alpha=0.5, label="CombiPrecip", color=cmap(0),
-        density=True,
-    )
-    ax.hist(
-        det_s2s_data.flatten(), bins=bins, alpha=0.5, label="S2S det.", color=cmap(1),
-        density=True,
-    )
-    ax.hist(
-        ens_s2s_data.flatten()/len(lowpass_ens_s2s.number), 
-        bins=bins, alpha=0.5, label="S2S ens.", color=cmap(3),
-        density=True,
-    )
-    
-    # set axis limits and axis labels
-    ax.set_xlim(0, 5)
-    ax.set_ylim(0, 10)
-    ax.set_xlabel("Precipitation (mm/h)")
-    ax.set_ylabel("Density")
-    
-    
-    # add legend and save
-    plt.legend()
+    # define figs directory
     script_dir = os.path.dirname(os.path.realpath(__file__))
     figs_dir = os.path.join(script_dir, "figs")
     os.makedirs(figs_dir, exist_ok=True)
-    fig.savefig(os.path.join(figs_dir, f"distribution_lt{lead_time_idx}.png"))
-        
+    
+    # call left and right tale plots
+    lead_time_name = lowpass_ens_s2s.lead_time[lead_time_idx]
+    plot_left_tale(bins_range, cpc_cdf, det_cdf, ens_cdf, lead_time_name, figs_dir)
+    plot_right_tale(bins_range, cpc_cdf, det_cdf, ens_cdf, lead_time_name, figs_dir)
+
 
 def plot_lead_time_map(
     lowpass_ens_s2s,
@@ -80,8 +116,7 @@ def plot_lead_time_map(
     figs_dir = os.path.join(script_dir, "figs")
     os.makedirs(figs_dir, exist_ok=True)
     lead_time_name = lowpass_ens_s2s.lead_time[lead_time_idx]
-    # TODO: fix lead time name
-    fig.savefig(os.path.join(figs_dir, f"maps_lt{lead_time_idx}.png"))
+    fig.savefig(os.path.join(figs_dir, f"maps_{lead_time_name}.png"))
         
         
 def plot_lead_time_timeseries(
@@ -99,8 +134,10 @@ def plot_lead_time_timeseries(
     
     # compute ensemble mean and spread
     ens_mean = np.mean(ens_s2s_timeseries, axis=0)
-    ens_std = np.std(ens_s2s_timeseries, axis=0)  # use std for spread
-    lower_bound = np.maximum(ens_mean - ens_std, 0)  # clip lower bound at zero
+    # use std for spread
+    ens_std = np.std(ens_s2s_timeseries, axis=0)
+    # clip negative values
+    lower_bound = np.maximum(ens_mean - ens_std, 0)
     upper_bound = np.maximum(ens_mean + ens_std, 0)
 
     # plot timeseries for each event
@@ -120,8 +157,8 @@ def plot_lead_time_timeseries(
         # add shaded region for ensemble spread
         ax.fill_between(
             dates[idxs],
-            lower_bound[idxs],  # lower bound clipped at zero
-            upper_bound[idxs],  # upper bound
+            lower_bound[idxs],
+            upper_bound[idxs],
             color=cmap(3),
             alpha=0.3,
         )
@@ -131,7 +168,8 @@ def plot_lead_time_timeseries(
         script_dir = os.path.dirname(os.path.realpath(__file__))
         figs_dir = os.path.join(script_dir, "figs")
         os.makedirs(figs_dir, exist_ok=True)
-        fig.savefig(os.path.join(figs_dir, f"timeseries_lt{lead_time_idx}_e{event}.png"))
+        lead_time_name = ens_s2s.lead_time[lead_time_idx]
+        fig.savefig(os.path.join(figs_dir, f"timeseries_{lead_time_name}_e{event}.png"))
 
 
 def make_plots(
@@ -145,17 +183,17 @@ def make_plots(
     cpc_file = os.path.join(test_data_dir, "cpc.h5")
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
     # deterministic data
-    det_s2s_file = os.path.join(test_data_dir, "det_s2s.h5")
-    det_s2s = ForecastSurfaceData.load_from_h5(det_s2s_file, ["precip"])
-    nearest_s2s_file = os.path.join(test_data_dir, "det_s2s_nearest.h5")
-    nearest_s2s = ForecastSurfaceData.load_from_h5(nearest_s2s_file, ["precip"])
+    # det_s2s_file = os.path.join(test_data_dir, "det_s2s.h5")
+    # det_s2s = ForecastSurfaceData.load_from_h5(det_s2s_file, ["precip"])
+    # nearest_s2s_file = os.path.join(test_data_dir, "det_s2s_nearest.h5")
+    # nearest_s2s = ForecastSurfaceData.load_from_h5(nearest_s2s_file, ["precip"])
     lowpass_det_s2s_file = os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5")
     lowpass_det_s2s = ForecastSurfaceData.load_from_h5(lowpass_det_s2s_file, ["precip"])
     # ensemble data
-    ens_s2s_file = os.path.join(test_data_dir, "ens_s2s.h5")
-    ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(ens_s2s_file, ["precip"])
-    nearest_ens_s2s_file = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
-    nearest_ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(nearest_ens_s2s_file, ["precip"])
+    # ens_s2s_file = os.path.join(test_data_dir, "ens_s2s.h5")
+    # ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(ens_s2s_file, ["precip"])
+    # nearest_ens_s2s_file = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
+    # nearest_ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(nearest_ens_s2s_file, ["precip"])
     lowpass_ens_s2s_file = os.path.join(test_data_dir, "ens_s2s_nearest_low-pass.h5")
     lowpass_ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(lowpass_ens_s2s_file, ["precip"])
     
