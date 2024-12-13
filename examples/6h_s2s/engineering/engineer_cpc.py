@@ -1,62 +1,113 @@
-# here I'm using the result of the datasets produced by
-# examples/cpc_era5_wrf/engineering/engineer_cpc.py for
-# simplicity :D
-
-import os, h5py, tomllib
+import glob, h5py, os, tomllib
 import numpy as np
-import xarray as xr
+from pyproj import Transformer
+from tqdm import tqdm
 
-from utils import write_precip_to_h5
+from engineering.regridding import interpolate_data, regularize_grid, cut_data
+from data.surface_data import SurfaceData
 
 from configs.cpc import get_config
 
-# TODO: refactor this code to use surface_data.py
-def generate_summer_range(time):
-    # Generate 6-hour intervals within summer months, from the first to the last datetime in `time`
-    start = time[0]
-    end = time[-1]
-    complete_range = np.arange(start, end + np.timedelta64(6, 'h'), np.timedelta64(6, 'h'))
-    
-    # Filter for dates in June, July, and August
-    summer_range = [date for date in complete_range if date.astype('datetime64[M]').astype(int) % 12 + 1 in [6, 7, 8]]
-    
-    return summer_range
 
-def aggregate_and_save(file_dir, pre_file_name, file_name):
-    with h5py.File(os.path.join(file_dir, pre_file_name), 'r') as f:
-        precip = f['precip'][...]
-        lats = f['latitude'][:]
-        lons = f['longitude'][:]
+### auxiliary functions ###
+def concat_cpc_6h(data_dir, initial_date, final_date):
+    print(f"Processing from {initial_date} to {final_date}")
     
-    times = xr.open_dataset(os.path.join(file_dir, pre_file_name))['time'].values
-    times = np.sort(times)
-    
-    # Generate the full summer 6-hourly range
-    summer_range = generate_summer_range(times)
-    
-    # Aggregate precipitation data following the summer range
-    agg_precip = []
-    agg_times = []
-    for agg_time in summer_range:
-        # Find indices in `times` that match the current 6-hour window
-        time_indices = [i for i, t in enumerate(times) if agg_time - np.timedelta64(6, 'h') < t <= agg_time]
+    # Initialize lists for times and aggregated data
+    times = []
+    aggregated_data = []
+
+    # Precompute time ranges for efficiency
+    total_days = np.timedelta64(final_date - initial_date, 'D').astype(int) + 1
+    intervals = [1, 7, 13, 19]
+
+    for d in tqdm(range(total_days), desc="Aggregating data"):
+        current_date = initial_date + np.timedelta64(d, 'D')
+        next_date = current_date + np.timedelta64(1, 'D')
+        # TODO: this breaks for the last date of the year (that's not a problem for the current code)
+
+        # Load current day and next day files
+        current_pattern = f"CPC{str(current_date)[2:4]}{(current_date - np.datetime64(str(current_date)[:4] + '-01-01') + 1).astype(int):03d}"
+        next_pattern = f"CPC{str(next_date)[2:4]}{(next_date - np.datetime64(str(next_date)[:4] + '-01-01') + 1).astype(int):03d}"
         
-        # Check if the 6-hour window has complete data
-        if len(time_indices) == 6:
-            precip_sum = np.sum(precip[time_indices], axis=0)
-            agg_precip.append(precip_sum)
-            agg_times.append(agg_time)
+        current_files = sorted(glob.glob(os.path.join(data_dir, current_pattern) + '*'))
+        next_files = sorted(glob.glob(os.path.join(data_dir, next_pattern) + '*'))
 
-    # Save combined train and validation data to a single file
-    dims_dict = {
-        "time": np.array(agg_times),
-        "latitude": lats,
-        "longitude": lons
-    }
-    write_precip_to_h5(
-        dims_dict, np.array(agg_precip),
-        os.path.join(file_dir, file_name)
+        # Ensure there are enough files for all intervals
+        if len(current_files) < 23 or not next_files:
+            print(f"Skipping day {current_date}: incomplete data")
+            continue
+
+        # Combine relevant files: T01-T23 from current day + T00 from next day
+        all_files = current_files[1:] + [next_files[0]]
+
+        # Load and cache file data
+        daily_data = np.array([
+            h5py.File(file, 'r')['dataset1/data1/data'][...] for file in all_files
+        ])
+
+        # Aggregate 6-hour intervals
+        for start_hour in intervals:
+            end_hour = start_hour + 5
+            hour_indices = np.arange(start_hour - 1, end_hour)
+            aggregated_data.append(np.mean(daily_data[hour_indices], axis=0))
+            times.append(current_date + np.timedelta64(end_hour, 'h'))
+
+    return np.array(times), np.array(aggregated_data)
+
+
+def regrid_cpc(data, xs, ys, extent):
+    lon_2d, lat_2d = transform_cpc_coordinates(xs, ys)
+    new_lon, new_lat, new_lon_2d, new_lat_2d = regularize_grid(lon_2d, lat_2d, xs.size, ys.size)
+    new_data = interpolate_data(data, lon_2d, lat_2d, new_lon_2d, new_lat_2d)
+    return cut_data(new_lon, new_lat, new_data, extent)
+
+
+def transform_cpc_coordinates(xs, ys):
+    transformer = Transformer.from_proj(2056, 4326, always_xy=True)
+    xx, yy = np.meshgrid(xs, ys)
+    lon_2d, lat_2d = transformer.transform(xx, yy)
+    return lon_2d, lat_2d
+
+
+def process_month(raw_data_dir, initial_date, final_date, xs, ys, new_extent):
+    times, raw_data = concat_cpc_6h(
+        os.path.join(raw_data_dir, str(initial_date)[:4]), initial_date, final_date
     )
+    lats, lons, data = regrid_cpc(raw_data, xs, ys, new_extent)
+    return times, lats, lons, data
+
+
+### main calls ###
+def preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months):
+    first = True
+    for year in years:
+        for month in months:
+            start_date = np.datetime64(f'{year}-{month:02d}-01')
+            end_date = np.datetime64(f'{year}-{month+1:02d}-01') - np.timedelta64(1, 'D')
+            if first:
+                times, lats, lons, data = process_month(
+                    raw_data_dir, start_date, end_date, xs, ys, new_extent
+                )
+                first = False
+            else:
+                aux_times, _, _, aux_data = process_month(
+                    raw_data_dir, start_date, end_date, xs, ys, new_extent
+                )
+                times = np.concatenate([times, aux_times], axis=0)
+                data = np.concatenate([data, aux_data], axis=0)
+    
+    # pass time to nanoseconds to avoid warning in xarray
+    times = times.astype('datetime64[ns]')
+    
+    return SurfaceData(times, lats, lons, precip=data)
+
+
+def save_data_from_dates(sfc_data, data_dir, dates):
+    new_sfc_data = sfc_data.take_out_from_date_range(dates)
+    os.makedirs(data_dir, exist_ok=True)
+    new_sfc_data.save_to_h5(os.path.join(data_dir, "cpc.h5"))
+    return sfc_data
 
 
 def main():
@@ -65,20 +116,29 @@ def main():
     with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
         dirs = tomllib.load(f)
     base = dirs["main"]["base"]
-    train_data_dir = os.path.join(base, dirs["subs"]["train"])
-    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
+    raw_data_dir = dirs["raw"]["cpc"]
     test_data_dir = os.path.join(base, dirs["subs"]["test"])
-    
+    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
+    train_data_dir = os.path.join(base, dirs["subs"]["train"])
+
     # extra configurations
     config = get_config()
-    cpc_preprocessed_file_name = config.cpc_preprocessed_file_name
-    cpc_aggregated_file_name = config.cpc_aggregated_file_name
-    
+    extent = config.extent
+    new_extent = config.new_extent
+    years = config.years
+    months = config.months
+    validation_dates = config.validation_dates
+    test_dates = config.test_dates
+    # maybe there's better way of doing that without these xs and ys
+    xs = np.arange(extent[0], extent[1], 1000)
+    ys = np.arange(extent[2], extent[3], 1000)[::-1]
+
     # main calls
-    aggregate_and_save(test_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
-    aggregate_and_save(validation_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
-    aggregate_and_save(train_data_dir, cpc_preprocessed_file_name, cpc_aggregated_file_name)
+    sfc_data = preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months)
+    sfc_data = save_data_from_dates(sfc_data, test_data_dir, test_dates)
+    sfc_data = save_data_from_dates(sfc_data, validation_data_dir, validation_dates)
+    sfc_data.save_to_h5(os.path.join(train_data_dir, "cpc.h5"))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

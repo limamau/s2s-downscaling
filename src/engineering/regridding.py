@@ -77,4 +77,4 @@ def cut_data(lons, lats, data, extent):
     lons = lons[lon_idx]
     lats = lats[lat_idx]
     data = data[..., lat_idx, :][..., lon_idx]
-    return lons, lats, data
+    return lats, lons, data

@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+from typing import Tuple
 import xarray as xr
 
 from engineering.regridding import interpolate_data
@@ -9,9 +10,9 @@ from utils import haversine
 class SurfaceData:
     def __init__(
         self, 
-        time: np.ndarray, 
-        latitude: np.ndarray, 
-        longitude: np.ndarray, 
+        time: np.ndarray[np.datetime64],
+        latitude: np.ndarray[np.float64],
+        longitude: np.ndarray[np.float64],
         **variables: np.ndarray,
     ):
         self.time = time
@@ -98,11 +99,11 @@ class SurfaceData:
         self.longitude = sfc_data.longitude
 
     
-    def save_to_h5(self, filename):
+    def save_to_h5(self, filename: str):
         """Save data to an HDF5 file using xarray."""
         data_vars = {
             var_name: (['time', 'latitude', 'longitude'], getattr(self, var_name))
-            for var_name in self._get_variable_names()
+            for var_name in self._var_names
         }
         
         ds = xr.Dataset(
@@ -115,6 +116,28 @@ class SurfaceData:
         )
 
         ds.to_netcdf(filename, engine='h5netcdf')
+        
+        
+    def take_out_from_date_range(self, date_ranges: Tuple[Tuple[np.datetime64, np.datetime64],...]):
+        """Take out data from specific date ranges, returning it as a new object,
+        and modify the original object by removing the selected data."""
+        # get indexes outside of date_ranges
+        date_idx = np.ones(len(self.time), dtype=bool)
+        for start_date, end_date in date_ranges:
+            date_idx &= (self.time < start_date) | (self.time > end_date)
+
+        # extract data to new array
+        new_sfc_data = self.__class__(
+            self.time[~date_idx], self.latitude, self.longitude, 
+            **{var_name: getattr(self, var_name)[...,~date_idx,:,:] for var_name in self._var_names}
+        )
+
+        # update current object
+        self.time = self.time[date_idx]
+        for var_name in self._var_names:
+            setattr(self, var_name, getattr(self, var_name)[...,date_idx,:,:])
+
+        return new_sfc_data
         
         
     def unflip_latlon(self):

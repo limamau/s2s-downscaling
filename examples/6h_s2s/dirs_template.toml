@@ -1,5 +1,6 @@
 [raw] # this should be downloaded from the S2S database
 s2s = "S2S/downloaded/data"
+cpc = "CPC/downloaded/data"
 
 [main] # main directory for the 6h_s2s example
 base = "path/to/your/data/directory/for/this/example"
