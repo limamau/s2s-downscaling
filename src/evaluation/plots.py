@@ -26,9 +26,9 @@ PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
 CUSTOM_VALUES = [0, 0.1, 0.5, 1, 2, 2.5, 5, 10, 20, 30, 50]
 CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 11)
 CUSTOM_CURVE_COLORS = [
+    '#0072B2', # Blue
     '#E69F00', # Orange
     '#D55E00', # Vermilion
-    '#0072B2', # Blue
     '#009E73', # Bluish Green
     '#999999', # Gray
     '#56B4E9', # Sky Blue
