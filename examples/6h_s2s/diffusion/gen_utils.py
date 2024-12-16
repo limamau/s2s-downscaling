@@ -1,19 +1,49 @@
-import h5py, os, tomllib
 import jax
 import jax.numpy as jnp
-import numpy as np
+import tensorflow as tf
+import jax.numpy as jnp
 from tqdm import tqdm
 
+from swirl_dynamics.data.hdf5_utils import read_single_array
 from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
-from utils import write_precip_to_h5
+from data.surface_data import SurfaceData, ForecastEnsembleSurfaceData
 
-import configs
-from dataset_utils import get_dataset_info, get_normalized_test_dataset
+# TODO: create functionality to apply log during training (and take it out in test)
+
+def get_dataset(file_path: str, key: str, batch_size: int, apply_log: bool=False):
+    # Read the dataset from the .hdf5 file.
+    images = read_single_array(file_path, key)
+
+    # Normalize the images
+    mu = jnp.mean(images)
+    sigma = jnp.std(images)
+    images = (images - mu) / sigma
+
+    # Expand dims
+    images = jnp.expand_dims(images, axis=-1)
+
+    # Create a TensorFlow dataset from the images.
+    ds = tf.data.Dataset.from_tensor_slices({"x": images})
+
+    # Repeat, batch, and prefetch the dataset.
+    ds = ds.repeat()
+    ds = ds.batch(batch_size)
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+    ds = ds.as_numpy_iterator()
+
+    return ds
 
 
-def generate(config, file_path, save_path, clip_max, num_samples):
+def generate(
+    config,
+    train_file_path: str,
+    prior_sfc_data: ForecastEnsembleSurfaceData,
+    clip_max: int,
+    num_samples: int,
+    num_chunks: int=1,
+):
     # Get denoiser model back
     denoiser_model = dfn_lib.PreconditionedDenoiserUNet(
         out_channels=1,
@@ -50,11 +80,16 @@ def generate(config, file_path, save_path, clip_max, num_samples):
         data_std=config.data_std,
     )
     
-    # Get train dataset info
-    train_shape, train_mean, train_std = get_dataset_info(
-        file_path=config.train_file_path,
-        key="precip",
-    )
+    # read training surface data
+    train_sfc_data = SurfaceData.load_from_h5(train_file_path, ["precip"])
+    
+    # get train dataset info
+    train_shape = train_sfc_data.get_shape()
+    train_mean = train_sfc_data.get_means()[0]
+    train_std = train_sfc_data.get_stds()[0]
+    
+    # delete train dataset as it may be too large
+    del train_sfc_data
 
     # Sampler
     sampler = dfn_lib.SdeCustomSampler(
@@ -73,11 +108,10 @@ def generate(config, file_path, save_path, clip_max, num_samples):
     # JIT sampler and sample
     generate = jax.jit(sampler.generate, static_argnames=('num_samples',))
     
-    # Test dataset
-    test_ds = get_normalized_test_dataset(
-        file_path=file_path,
-        key="precip",
-    )
+    # Get test dataset
+    prior_sfc_data.normalize() # use train mean and std to normalize instead???
+    test_ds = prior_sfc_data.precip
+    test_ds = jnp.expand_dims(test_ds, axis=-1) # channels
     
     # Calculate the new shape for the samples array
     num_lead_times, num_ensembles, num_times, num_lats, num_lons, num_channels = test_ds.shape
@@ -97,78 +131,38 @@ def generate(config, file_path, save_path, clip_max, num_samples):
     rng = jax.random.PRNGKey(0)
 
     # Samples generation loop
-    total_iterations = num_lead_times * num_ensembles * num_times
+    total_iterations = num_lead_times * num_ensembles * num_times * num_chunks
     with tqdm(total=total_iterations, desc="Generating samples") as pbar:
         for lead_time_idx in range(num_lead_times):
             for ensemble_idx in range(num_ensembles):
                 for time_idx in range(num_times):
-                    rng, rng_step = jax.random.split(rng)
+                    for chunk_idx in range(num_chunks):
+                        rng, rng_step = jax.random.split(rng)
 
-                    # Generate samples
-                    samples = generate(
-                        init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
-                        rng=rng_step,
-                        num_samples=num_samples,
-                    ) * train_std + train_mean
+                        # Generate samples
+                        samples = generate(
+                            init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
+                            rng=rng_step,
+                            num_samples=num_samples//num_chunks,
+                        ) * train_std + train_mean
 
-                    # Save the samples into the preallocated array
-                    start_idx = ensemble_idx * num_samples
-                    end_idx = start_idx + num_samples
-                    samples_array = samples_array.at[
-                        lead_time_idx, start_idx:end_idx, time_idx,
-                    ].set(samples)
+                        # Save the samples into the preallocated array
+                        start_idx = chunk_idx * (num_samples // num_chunks)
+                        end_idx = start_idx + (num_samples // num_chunks)
+                        samples_array = samples_array.at[
+                            lead_time_idx, start_idx:end_idx, time_idx,
+                        ].set(samples)
 
-                    pbar.update(1)
+                        pbar.update(1)
     
     # Clip zeros
     samples = jnp.clip(samples_array[...,0], min=0, max=None)
     
-    # Save all samples in a single HDF5 file
-    with h5py.File(file_path, "r") as f:
-        lead_times = f["lead_time"][:]
-        ensembles = f["ensemble"][:]
-        times = f["time"][:]
-        lats = f["latitude"][:]
-        lons = f["longitude"][:]
-    
-    dims_dict = {
-        "lead_time": lead_times,
-        "ensemble": np.arange(len(ensembles) * num_samples),
-        "time": times,
-        "latitude": lats,
-        "longitude": lons,
-    }
-    
-    write_precip_to_h5(
-        dims_dict, samples, save_path,
+    return ForecastEnsembleSurfaceData(
+        lead_time=prior_sfc_data.lead_time,
+        number=range(num_samples*prior_sfc_data.number.size),
+        time=prior_sfc_data.time,
+        latitude=prior_sfc_data.latitude,
+        longitude=prior_sfc_data.longitude,
+        precip=samples,
     )
-    
-
-def main():
-    # directory paths
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(script_dir, "../dirs.toml"), "rb") as f:
-        dirs = tomllib.load(f)
-    base = dirs["main"]["base"]
-    train_data_dir = os.path.join(base, dirs["subs"]["train"])
-    validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
-    test_data_dir = os.path.join(base, dirs["subs"]["test"])
-    simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
-    
-    # extra configurations
-    model_config = configs.light_longer.get_config(train_data_dir, validation_data_dir)
-    prior_file_path = os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5")
-    clip_max = 100
-    num_samples = 10
-    save_file_path = os.path.join(
-        simulations_dir,
-        "diffusion",
-        f"{model_config.experiment_name}_cli{clip_max}_ens{num_samples}.h5",
-    )
-    
-    # main call
-    generate(model_config, prior_file_path, save_file_path, clip_max, num_samples)
-
-
-if __name__ == "__main__":
-    main()

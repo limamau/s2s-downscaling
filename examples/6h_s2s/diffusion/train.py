@@ -8,7 +8,7 @@ from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
 
 import configs
-from dataset_utils import get_dataset
+from gen_utils import get_dataset
 
 
 def train(
@@ -137,9 +137,9 @@ def main():
     validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
     
     # extra configurations
-    config = configs.light.get_config(train_data_dir, validation_data_dir)
-    train_file_path = config.train_file_path
-    validation_file_path = config.validation_file_path
+    config = configs.light.get_config()
+    train_file_path = os.path.join(train_data_dir, config.train_file_name)
+    validation_file_path = os.path.join(validation_data_dir, config.validation_file_path)
     workdir = config.workdir
     key = config.key
     data_std = config.data_std

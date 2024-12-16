@@ -1,12 +1,11 @@
 import os, ml_collections
 
-def get_config(train_data_dir, validation_data_dir):
+def get_config():
     config = ml_collections.ConfigDict()
     config.experiment_name = "light"
     
     # File paths and keys
-    config.train_file_path = os.path.join(train_data_dir, "cpc_6h_resampled.h5")
-    config.validation_file_path = os.path.join(validation_data_dir, "cpc_6h.h5")
+    config.train_file_name = "cpc.h5"
     config.workdir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         f"../experiments/{config.experiment_name}"

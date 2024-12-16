@@ -57,6 +57,21 @@ class SurfaceData:
             self.latitude.min(), self.latitude.max(),
         )
         
+    
+    def get_means(self):
+        """Calculates the means of the variables and returns a tuple with the results."""
+        return tuple(getattr(self, var_name).mean() for var_name in self._var_names)
+    
+    
+    def get_shape(self):
+        """Get the shape of the data (assumed to be unique)."""
+        return getattr(self, self._var_names[0]).shape
+    
+    
+    def get_stds(self):
+        """Calculates the standard deviations of the variables and returns a tuple with the results."""
+        return tuple(getattr(self, var_name).std() for var_name in self._var_names)
+        
         
     def get_spatial_lengths(self):
         """Calculates the spatial lengths (x_length and y_length)."""
@@ -80,6 +95,17 @@ class SurfaceData:
             time, latitude, longitude, 
             **{var_name: getattr(cls, var_name) for var_name in variables_names}
         )
+        
+        
+    def normalize(self, mean: float=None, std: float=None):
+        """Normalize data. If mean or std are None, those are calculated."""
+        if mean is None:
+            mean = self.get_means()
+        if std is None:
+            std = self.get_stds()
+        
+        for var_name in self._var_names:
+            setattr(self, var_name, (getattr(self, var_name) - mean) / std)
         
         
     def regrid(self, sfc_data: 'SurfaceData', method: str='linear'):
@@ -166,7 +192,7 @@ class EnsembleSurfaceData(SurfaceData):
         
         
     @classmethod
-    def load_from_h5(cls, filename, variables_names):
+    def load_from_h5(cls, filename: str, variables_names: Tuple[str,...]):
         """Load data from an HDF5 file using h5py for dimensions."""
         with h5py.File(filename, 'r') as f:
             number = f['number'][:]
