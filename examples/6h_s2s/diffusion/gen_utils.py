@@ -40,7 +40,7 @@ def generate(
     config,
     train_file_path: str,
     prior_sfc_data: ForecastEnsembleSurfaceData,
-    clip_max: int,
+    clip_max: int, # in fact this is a float
     num_samples: int,
     num_chunks: int=1,
 ):

@@ -7,13 +7,13 @@ from engineering.spectrum import get_1dpsd
 from evaluation.plots import CURVE_CMAP as cmap
 
 
-def plot_psds(cpc, det, ens, data_std, lambda_star, psd_star, figs_dir):
+def plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir):
     for lead_time_idx in range(3):
         spatial_lenghts = cpc.get_spatial_lengths()
-        k, cpc_psd = get_1dpsd(cpc.precip, *spatial_lenghts, data_std=data_std)
-        _, det_psd = get_1dpsd(det.precip[lead_time_idx], *spatial_lenghts, data_std=data_std)
+        k, cpc_psd = get_1dpsd(cpc.precip, *spatial_lenghts)
+        _, det_psd = get_1dpsd(det.precip[lead_time_idx], *spatial_lenghts)
         _, ens_psd = get_1dpsd(
-            np.mean(ens.precip[lead_time_idx], axis=0), *spatial_lenghts, data_std=data_std
+            np.mean(ens.precip[lead_time_idx], axis=0), *spatial_lenghts,
         )
         wavelengths = 2*np.pi / k[::-1]
         
@@ -46,6 +46,12 @@ def plot_psds(cpc, det, ens, data_std, lambda_star, psd_star, figs_dir):
         lead_time_name = det.lead_time[lead_time_idx].replace(" ", "-")
         plt.title(f"lead time = {lead_time_name}")
         fig.savefig(os.path.join(figs_dir, f"psd_{lead_time_name}.png"))
+        
+
+def print_target_noise(lambda_star, psd_star, cpc):
+    Nx, Ny = cpc.latitude.size, cpc.longitude.size
+    sigma_star = np.sqrt(psd_star * Nx * Ny)
+    print("Target noise:", sigma_star)
 
 
 def main():
@@ -64,17 +70,19 @@ def main():
     cpc = SurfaceData.load_from_h5(cpc_path, ["precip"])
     det = ForecastSurfaceData.load_from_h5(det_path, ["precip"])
     ens = ForecastEnsembleSurfaceData.load_from_h5(ens_path, ["precip"])
-    data_std = 0.31
-    lambda_star = 1.6e3 # to be tuned
-    psd_star = 2.8e-3 # to be tuned
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     figs_dir = os.path.join(script_dir, "tuning_figs")
     os.makedirs(figs_dir, exist_ok=True)
     
+    # to be tuned
+    lambda_star = 1.65e3
+    psd_star = 3.15e-2
+    
     # main calls
-    plot_psds(cpc, det, ens, data_std, lambda_star, psd_star, figs_dir)
+    plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir)
     print("psds saved")
+    print_target_noise(lambda_star, psd_star, cpc)
     
     
 if __name__ == "__main__":
