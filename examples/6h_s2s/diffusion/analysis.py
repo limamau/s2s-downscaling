@@ -246,16 +246,16 @@ def make_plots(s2s_path, det_path, ens_path, cpc_path, time_idxs, num_idx):
     figs_dir = os.path.join(script_dir, "analysis_figs")
     os.makedirs(figs_dir, exist_ok=True)
     
-    # # plot gifs for each lead time (and each event)
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_map(
-    #         s2s, det, ens, cpc,
-    #         lead_time_idx,
-    #         num_idx,
-    #         time_idxs,
-    #         figs_dir,
-    #     )
-    # print("maps saved")
+    # plot gifs for each lead time (and each event)
+    for lead_time_idx in range(3):
+        plot_lead_time_map(
+            s2s, det, ens, cpc,
+            lead_time_idx,
+            num_idx,
+            time_idxs,
+            figs_dir,
+        )
+    print("maps saved")
     
     # plot timeseries for each lead time (and each event)
     for lead_time_idx in range(3):
@@ -266,23 +266,23 @@ def make_plots(s2s_path, det_path, ens_path, cpc_path, time_idxs, num_idx):
         )
     print("timeseries saved")
     
-    # # plot distribution for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_distribution(
-    #         s2s, det, ens, cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("distributions saved")
+    # plot distribution for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_distribution(
+            s2s, det, ens, cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("distributions saved")
     
-    # # plot psds for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_psd(
-    #         s2s, det, ens, cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("psds saved")
+    # plot psds for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_psd(
+            s2s, det, ens, cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("psds saved")
 
 
 def main():
@@ -296,8 +296,8 @@ def main():
     
     # extra configurations
     s2s_path = os.path.join(test_data_dir, "det_s2s_nearest.h5")
-    det_path = os.path.join(simulations_dir, "diffusion/det_light_longer_cli100_ens50.h5")
-    ens_path = os.path.join(simulations_dir, "diffusion/ens_light_longer_cli100_ens50.h5")
+    det_path = os.path.join(simulations_dir, "diffusion/det_light_longer_cli50_ens50.h5")
+    ens_path = os.path.join(simulations_dir, "diffusion/ens_light_longer_cli50_ens50.h5")
     cpc_path = os.path.join(test_data_dir,"cpc.h5")
     # time_idx for snapshots
     time_idxs = [i for i in range(16)]
@@ -306,8 +306,7 @@ def main():
 
     # main call    
     make_plots(s2s_path, det_path, ens_path, cpc_path, time_idxs, num_idx)
-    
 
-    
+
 if __name__ == "__main__":
     main()

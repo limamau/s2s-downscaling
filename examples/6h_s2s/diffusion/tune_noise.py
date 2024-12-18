@@ -77,7 +77,7 @@ def main():
     
     # to be tuned
     lambda_star = 1.65e3
-    psd_star = 3.15e-2
+    psd_star = 3.2e-2
     
     # main calls
     plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir)
