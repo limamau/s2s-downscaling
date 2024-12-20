@@ -20,6 +20,6 @@ def get_config(raw_data_dir, test_data_dir):
             os.path.join(raw_data_dir, "det_sfc_2021-06-07_tp.nc"),
         ),
     }
-    config.cpc_file = os.path.join(test_data_dir, f"cpc_6h.h5")
+    config.cpc_file = os.path.join(test_data_dir, f"cpc.h5")
     
     return config
