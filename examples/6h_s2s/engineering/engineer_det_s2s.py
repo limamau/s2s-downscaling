@@ -30,6 +30,14 @@ def run_engineering(storm_dates, lead_time_files, cpc_file):
     return s2s, nearest_s2s, nearest_lowpass_s2s
 
 
+def check_negative_values(data):
+    if (data < -1).any():
+        print("Negative values found in the data")
+    else:
+        print("No negative values found in the data")
+    
+
+
 def main():
     # directory paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,12 +54,20 @@ def main():
     cpc_file = config.cpc_file
     
     # main calls
+    print("cpc:")
+    check_negative_values(SurfaceData.load_from_h5(cpc_file, ["precip"]).precip)
     s2s, nearest_s2s, nearest_lowpass_s2s = run_engineering(
         storm_dates, lead_time_files, cpc_file,
     )
     s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s.h5"))
+    print("s2s:")
+    check_negative_values(nearest_s2s.precip)
     nearest_s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s_nearest.h5"))
+    print("s2s nearest:")
+    check_negative_values(nearest_lowpass_s2s.precip)
     nearest_lowpass_s2s.save_to_h5(os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5"))
+    print("s2s nearest low-pass:")
+    check_negative_values(nearest_lowpass_s2s.precip)
 
 
 if __name__ == "__main__":

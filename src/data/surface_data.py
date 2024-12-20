@@ -115,12 +115,14 @@ class SurfaceData:
         new_lon_2d, new_lat_2d = np.meshgrid(sfc_data.longitude, sfc_data.latitude)
         
         for var_name in self._var_names:
-            setattr(self, var_name, interpolate_data(
-                getattr(self, var_name),
-                old_lon_2d, old_lat_2d,
-                new_lon_2d, new_lat_2d,
-                method=method
-            ))
+            setattr(
+                self, var_name, interpolate_data(
+                    getattr(self, var_name),
+                    old_lon_2d, old_lat_2d,
+                    new_lon_2d, new_lat_2d,
+                    method=method,
+                )
+            )
         
         self.latitude = sfc_data.latitude
         self.longitude = sfc_data.longitude
@@ -202,6 +204,7 @@ class EnsembleSurfaceData(SurfaceData):
             for var_name in variables_names:
                 setattr(cls, var_name, f[var_name][...])
         time = xr.open_dataset(filename, engine='h5netcdf').time.values
+        # TODO: close file?
 
         return cls(
             number, time, latitude, longitude, 

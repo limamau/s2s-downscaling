@@ -2,12 +2,33 @@ import imageio, os, tomllib
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib import pyplot as plt
+import matplotlib.colors as mcolors
 
 from data.surface_data import SurfaceData
-from evaluation.plots import PRECIP_CMAP, CUSTOM_NORM
 
-from engineering_utils import aggregate_det_s2s_precip
-from configs.det_s2s import get_config
+from engineering_utils import aggregate_det_s2s_precip, aggregate_single_ens_s2s_precip
+from configs import det_s2s, ens_s2s
+
+
+CUSTOM_PRECIP_COLORS = [
+    '#000000',  # Black
+    '#808080',  # Medium gray
+    '#A9A9A9',  # Light gray
+    '#FFFFFF',  # White
+    '#FFFFCC',  # Light Yellow
+    '#C7E9B4',  # Light Green
+    '#7FCDBB',  # Moderate Blue-green
+    '#41B6C4',  # Moderate Blue
+    '#1D91C0',  # Blue
+    '#225EA8',  # Darker Blue
+    '#253494',  # Dark Blue
+    '#54278F',  # Purple
+    '#7A0177',  # Dark
+    '#C51B8A',  # Pink
+]
+PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
+CUSTOM_VALUES = [-5, -2, -1, 0, 0.1, 0.5, 1, 2, 2.5, 5, 10, 20, 30, 50]
+CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 14)
 
 
 def plot_maps(
@@ -114,14 +135,49 @@ def plot_zoomed_out_maps(
     for image_path in image_paths:
         os.remove(image_path)
 
-def run_engineering(storm_dates, lead_time_files, extent):
+def run_det_engineering(storm_dates, lead_time_files, extent):
     # Load S2S
     s2s = aggregate_det_s2s_precip(lead_time_files, storm_dates)
+    # check negative values in aggregation
+    print("Checking negative values in aggregation...")
+    check_negative_values(s2s.precip)
     s2s.cut_data(extent)
+    # check negative values in cut data
+    print("Checking negative values in cut data...")
+    check_negative_values(s2s.precip)
     s2s.unflip_latlon()
+    # check negative values in unflipped data
+    print("Checking negative values in unflipped data...")
+    check_negative_values(s2s.precip)
     print(f"Cut S2S data shape: {s2s.precip.shape}")
     
     return s2s
+
+
+def run_single_ens_engineering(storm_dates, lead_time_files, extent, num_idx):
+    # Load S2S
+    s2s = aggregate_single_ens_s2s_precip(lead_time_files, storm_dates, num_idx)
+    # check negative values in aggregation
+    print("Checking negative values in aggregation...")
+    check_negative_values(s2s.precip)
+    s2s.cut_data(extent)
+    # check negative values in cut data
+    print("Checking negative values in cut data...")
+    check_negative_values(s2s.precip)
+    s2s.unflip_latlon()
+    # check negative values in unflipped data
+    print("Checking negative values in unflipped data...")
+    check_negative_values(s2s.precip)
+    print(f"Cut S2S data shape: {s2s.precip.shape}")
+    
+    return s2s
+
+
+def check_negative_values(data):
+    if (data < 0).any():
+        print("Negative values found.")
+    else:
+        print("Only positive values.")
 
 
 def main():
@@ -134,7 +190,7 @@ def main():
     test_data_dir = os.path.join(base, dirs["subs"]["test"])
     
     # extra configurations
-    config = get_config(raw_data_dir, test_data_dir)
+    config = ens_s2s.get_config(raw_data_dir, test_data_dir)
     storm_dates = config.storm_dates
     lead_time_files = config.lead_time_files
     cpc_file = config.cpc_file
@@ -143,13 +199,16 @@ def main():
     os.makedirs("check", exist_ok=True)
     time_idxs = [i for i in range(16)]
     figs_dir = os.path.join(script_dir, "figs")
+    num_idx = 0
     
     # main calls
-    s2s = run_engineering(
-        storm_dates, lead_time_files, extent,
+    # s2s = run_det_engineering(
+    #     storm_dates, lead_time_files, extent,
+    # )
+    s2s = run_single_ens_engineering(
+        storm_dates, lead_time_files, extent, num_idx,
     )
-    print("lon:", s2s.longitude)
-    print("lat:", s2s.latitude)
+    check_negative_values(s2s.precip)
     # s2s.save_to_h5(os.path.join("check", "zoom_out_check.h5"))
     # print("zoomed out data saved")
     plot_zoomed_out_maps(

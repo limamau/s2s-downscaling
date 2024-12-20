@@ -15,19 +15,19 @@ def plot_left_tale(
     lead_time_name,
     figs_dir,
 ):
-    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(8, 4))
 
-    ax1.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
-    ax1.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
-    ax1.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
+    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
     
-    ax1.set_xlim(0, 5)
-    ax1.set_ylim(0, 1.0)
-    ax1.set_xlabel("Precipitation (mm/h)")
-    ax1.set_ylabel("Cumulative distribution function")
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 1.0)
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Cumulative distribution function")
 
-    ax1.legend()
-    fig1.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_left.png"))
+    ax.legend()
+    fig.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_left.png"))
 
 
 def plot_right_tale(
@@ -39,24 +39,24 @@ def plot_right_tale(
     figs_dir,
 ):
     # Create second figure and axis
-    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 5))
 
     # Set axis limits and labels for second figure
-    ax2.set_xscale("log")
-    ax2.set_yscale("log")
-    ax2.set_xlim(0.3, None)
-    ax2.set_ylim(0.8, 1.0)
-    ax2.set_xlabel("Precipitation (mm/h)")
-    ax2.set_ylabel("Cumulative distribution function")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(0.3, None)
+    ax.set_ylim(0.8, 1.0)
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Cumulative distribution function")
 
     # Plot CDFs for second figure
-    ax2.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
-    ax2.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
-    ax2.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
+    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.plot(bins_range, det_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax.plot(bins_range, ens_cdf, label="S2S ens.", color=cmap(3), linewidth=2)
     
     # Add legend and save second figure
-    ax2.legend()
-    fig2.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_right.png"))
+    ax.legend()
+    fig.savefig(os.path.join(figs_dir, f"distribution_{lead_time_name}_right.png"))
 
 def plot_lead_time_distribution(
     cpc,
@@ -96,7 +96,7 @@ def plot_lead_time_map(
     number_idx2,
     plot_time_idx,
 ):
-    # Plot maps
+    # plot maps
     arrays = (
         lowpass_ens_s2s.precip[lead_time_idx, number_idx1, plot_time_idx],
         lowpass_ens_s2s.precip[lead_time_idx, number_idx2, plot_time_idx],
@@ -110,7 +110,7 @@ def plot_lead_time_map(
         "CombiPrecip"
     )
     cpc_extent = cpc.get_extent()
-    extents = (cpc_extent,) * 4 # here we're cuttign s2s on the plot
+    extents = (cpc_extent,) * 4
     fig, _ = plot_maps(arrays, titles, extents)
     script_dir = os.path.dirname(os.path.realpath(__file__))
     figs_dir = os.path.join(script_dir, "figs")
@@ -127,9 +127,9 @@ def plot_lead_time_timeseries(
     event_length=8,
 ):
     # get timeseries
-    cpc_timeseries = np.mean(cpc.precip, axis=(-1, -2))
-    det_s2s_timeseries = np.mean(det_s2s.precip[lead_time_idx], axis=(-1, -2))
-    ens_s2s_timeseries = np.mean(ens_s2s.precip[lead_time_idx], axis=(-1, -2))
+    cpc_timeseries = np.mean(cpc.precip, axis=(-1,-2))
+    det_s2s_timeseries = np.mean(det_s2s.precip[lead_time_idx], axis=(-1,-2))
+    ens_s2s_timeseries = np.mean(ens_s2s.precip[lead_time_idx], axis=(-1,-2))
     dates = cpc.time
     
     # compute ensemble mean and spread
@@ -245,7 +245,7 @@ def main():
     test_data_dir = os.path.join(base, dirs["subs"]["test"])
     
     # extra configurations
-    plot_time_idx = 2
+    plot_time_idx = 6
     lead_time_idx = [0, 1, 2]
     number_idx1 = 25
     number_idx2 = 30
