@@ -7,6 +7,7 @@ from engineering.regridding import interpolate_data
 from engineering.spectrum import low_pass_filter
 from utils import haversine
 
+
 class SurfaceData:
     def __init__(
         self, 
@@ -171,7 +172,7 @@ class SurfaceData:
         if self.latitude[0] > self.latitude[-1]:
             self.latitude = np.flip(self.latitude)
             for var_name in self._var_names:
-                setattr(self, var_name, np.flip(getattr(self, var_name), axis=-1))
+                setattr(self, var_name, np.flip(getattr(self, var_name), axis=-2))
         if self.longitude[0] > self.longitude[-1]:
             self.longitude = np.flip(self.longitude)
             for var_name in self._var_names:
