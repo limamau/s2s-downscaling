@@ -28,7 +28,7 @@ CUSTOM_PRECIP_COLORS = [
 ]
 PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
 CUSTOM_VALUES = [-5, -2, -1, 0, 0.1, 0.5, 1, 2, 2.5, 5, 10, 20, 30, 50]
-CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 14)
+CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, len(CUSTOM_VALUES)-1)
 
 
 def plot_maps(
@@ -87,12 +87,13 @@ def plot_maps(
     return fig, axs
 
 
-def plot_zoomed_out_maps(
+def plot_zoomed_out_gifs(
     s2s, cpc,
     time_idxs,
-    figs_dir,
+    gifs_dir,
     event_length=8,
 ):
+    os.makedirs(gifs_dir, exist_ok=True)
     image_paths = []
 
     # save temporary images for each time_idx
@@ -117,14 +118,16 @@ def plot_zoomed_out_maps(
         )
         fig, _ = plot_maps(arrays, titles, extents, main_title=f"{cpc.time[time_idx]}")
 
-        image_path = os.path.join(figs_dir, f"temp_map_t{time_idx}.png")
+        image_path = os.path.join(gifs_dir, f"temp_map_t{time_idx}.png")
         fig.savefig(image_path)
         plt.close(fig) # important to avoid memory leak
         image_paths.append(image_path)
 
     # create the GIFs
     for event_idx in (1, 2):
-        gif_path = os.path.join(figs_dir, f"zoom_out_map_e{event_idx}.gif")
+        gif_path = os.path.join(gifs_dir, f"zoom_out_map_e{event_idx}.gif")
+        if os.path.exists(gif_path):
+            os.remove(gif_path)
         with imageio.get_writer(gif_path, mode='I', duration=1000) as writer:
             for image_path_idx in range((event_idx-1)*event_length, event_idx*event_length):
                 image_path = image_paths[image_path_idx]
@@ -136,7 +139,7 @@ def plot_zoomed_out_maps(
         os.remove(image_path)
 
 def run_det_engineering(storm_dates, lead_time_files, extent):
-    # Load S2S
+    # load S2S
     s2s = aggregate_det_s2s_precip(lead_time_files, storm_dates)
     # check negative values in aggregation
     print("Checking negative values in aggregation...")
@@ -193,12 +196,12 @@ def main():
     config = ens_s2s.get_config(raw_data_dir, test_data_dir)
     storm_dates = config.storm_dates
     lead_time_files = config.lead_time_files
-    cpc_file = config.cpc_file
+    cpc_file = os.path.join(test_data_dir, "cpc.h5")
     extent = (-10, 20, 40, 53)
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
-    os.makedirs("check", exist_ok=True)
+    # os.makedirs("check", exist_ok=True)
     time_idxs = [i for i in range(16)]
-    figs_dir = os.path.join(script_dir, "figs")
+    gifs_dir = os.path.join(script_dir, "gifs")
     num_idx = 0
     
     # main calls
@@ -208,13 +211,16 @@ def main():
     s2s = run_single_ens_engineering(
         storm_dates, lead_time_files, extent, num_idx,
     )
+    print("s2s:")
     check_negative_values(s2s.precip)
     # s2s.save_to_h5(os.path.join("check", "zoom_out_check.h5"))
     # print("zoomed out data saved")
-    plot_zoomed_out_maps(
+    print("cpc:")
+    check_negative_values(cpc.precip)
+    plot_zoomed_out_gifs(
         s2s, cpc,
         time_idxs,
-        figs_dir,
+        gifs_dir,
     )
     print("maps saved")
 

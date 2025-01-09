@@ -100,6 +100,9 @@ def preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months):
     # pass time to nanoseconds to avoid warning in xarray
     times = times.astype('datetime64[ns]')
     
+    # clip negative values
+    data = np.where(data < 0, 0, data)
+    
     return SurfaceData(times, lats, lons, precip=data)
 
 

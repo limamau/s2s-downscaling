@@ -59,6 +59,9 @@ def aggregate_det_s2s_precip(lead_time_files, storm_dates):
             aux_raw_s2s_data = None
             
         first = False
+        
+    # clip values
+    raw_s2s_precip = np.where(raw_s2s_precip < 0, 0, raw_s2s_precip)
     
     return ForecastSurfaceData(
         lead_times, times, raw_s2s_lats, raw_s2s_lons, precip=raw_s2s_precip,
@@ -82,24 +85,28 @@ def aggregate_single_ens_s2s_precip(lead_time_files, storm_dates, num_idx):
         for i, file in enumerate(file_tuple):
             with Dataset(file, 'r') as nc_file:
                 tp = nc_file.variables['tp'][:,num_idx,...]
-                # tp.getncattr('scale_factor')
-                # tp.getncattr('add_offset')
-                # tp = tp * tp.scale_factor + tp.add_offset
+                # tp_var = nc_file.variables['tp']
+                # scale_factor = getattr(tp_var, 'scale_factor', None)
+                # add_offset = getattr(tp_var, 'add_offset', None)
+                # tp = tp * scale_factor + add_offset
                 lat = nc_file.variables['latitude'][:]
                 lon = nc_file.variables['longitude'][:]
             print("tp shape:", tp.shape)
             time = xr.open_dataset(file).time.values
             idxs_to_keep = get_s2s_idxs_to_keep(time, storm_dates[i])
+            problematic_idxs = check_monotonic(tp)
+            # print("tp[0]:", tp[problematic_idxs[0], 600:605, 1200:1205])
+            # print("tp[0+1]:", tp[problematic_idxs[0]+1, 600:605, 1200:1205])
             idxs_to_keep_diff = np.concatenate(
                 [np.array([idxs_to_keep[0]-1]), idxs_to_keep]
             )
-            print("idxs_to_keep_diff:", idxs_to_keep_diff)
+            # print("idxs_to_keep_diff:", idxs_to_keep_diff)
             precip = np.expand_dims(
                 np.diff(tp[idxs_to_keep_diff], n=1, axis=0), 
                 axis=0,
             )
             precip = precip / 6
-            precip = np.where(precip < 0, 0, precip)
+            # precip = np.where(precip < 0, 0, precip)
             
             # check for negative values
             if (precip < -1).any():
@@ -129,6 +136,9 @@ def aggregate_single_ens_s2s_precip(lead_time_files, storm_dates, num_idx):
             aux_raw_s2s_data = None
             
         first = False
+        
+    # clip values
+    raw_s2s_precip = np.where(raw_s2s_precip < 0, 0, raw_s2s_precip)
     
     return ForecastSurfaceData(
         lead_times, times, raw_s2s_lats, raw_s2s_lons, precip=raw_s2s_precip,
@@ -164,7 +174,7 @@ def aggregate_ens_s2s_precip(lead_time_files, storm_dates):
                 raw_s2s_lats = ds.latitude.values
                 raw_s2s_lons = ds.longitude.values
                 raw_s2s_precip = precip
-                print("First precip shape:", raw_s2s_precip.shape)
+                # print("First precip shape:", raw_s2s_precip.shape)
                 times = ds.time.values[idxs_to_keep]
             
             elif first:
@@ -182,11 +192,23 @@ def aggregate_ens_s2s_precip(lead_time_files, storm_dates):
             aux_raw_s2s_data = None
             
         first = False
+        
+    # clip values
+    raw_s2s_precip = np.where(raw_s2s_precip < 0, 0, raw_s2s_precip)
     
-    print("precip shape:", raw_s2s_precip.shape)
+    # print("precip shape:", raw_s2s_precip.shape)
     return ForecastEnsembleSurfaceData(
         lead_times, numbers, times, raw_s2s_lats, raw_s2s_lons, precip=raw_s2s_precip,
     )
+    
+
+def check_monotonic(tp):
+    problematic_idxs = []
+    for i in range(tp.shape[0]-1):
+        if not np.all(tp[i+1] >= tp[i]):
+            problematic_idxs.append(i)
+            # print("Non-monotonic values found in the data at idx ", i)
+    return problematic_idxs
 
 
 def get_s2s_idxs_to_keep(times, bound_dates):
