@@ -25,8 +25,8 @@ def plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir):
         
         fig, ax = plt.subplots(figsize=(8, 5))
         
-        ax.plot(wavelengths[mask], det_psd[mask][::-1], label="det-diff", color=cmap(5))
-        ax.plot(wavelengths[mask], ens_psd[mask][::-1], label="ens-diff", color=cmap(6))
+        ax.plot(wavelengths[mask], det_psd[mask][::-1], label="det-s2s", color=cmap(5))
+        ax.plot(wavelengths[mask], ens_psd[mask][::-1], label="ens-s2s", color=cmap(6))
         ax.plot(wavelengths[mask], cpc_psd[mask][::-1], label="CombiPrecip", color=cmap(0))
         ax.legend()
         

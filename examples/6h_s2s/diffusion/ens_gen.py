@@ -1,5 +1,4 @@
 import os, tomllib
-import numpy as np
 
 from data.surface_data import ForecastEnsembleSurfaceData
 
