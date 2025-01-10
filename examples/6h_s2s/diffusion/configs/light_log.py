@@ -1,8 +1,8 @@
 import os, ml_collections
 
-def get_config(train_data_dir, validation_data_dir):
+def get_config():
     config = ml_collections.ConfigDict()
-    config.experiment_name = "light_longer"
+    config.experiment_name = "light_log"
     
     # File paths and keys
     config.train_file_name = "cpc.h5"
@@ -12,11 +12,11 @@ def get_config(train_data_dir, validation_data_dir):
     )
     config.key = "precip"
     
-    # Apply log transformation
-    config.apply_log = False
-    
     # Dataset std
     config.data_std = 0.31
+    
+    # Apply log transformation
+    config.apply_log = True
     
     # Resolutions
     config.num_channels = (64, 128, 256)

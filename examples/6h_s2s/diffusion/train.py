@@ -17,6 +17,7 @@ def train(
     workdir,
     key,
     data_std,
+    apply_log,
     num_channels,
     downsample_ratio,
     num_blocks,
@@ -95,6 +96,7 @@ def train(
             file_path=train_file_path,
             key=key,
             batch_size=train_batch_size,
+            apply_log=apply_log,
         ),
         trainer=trainer,
         workdir=workdir,
@@ -107,6 +109,7 @@ def train(
             file_path=validation_file_path,
             key=key,
             batch_size=eval_batch_size,
+            apply_log=apply_log,
         ),
         eval_every_steps = 1000,
         num_batches_per_eval = eval_batch_size,
@@ -137,12 +140,13 @@ def main():
     validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
     
     # extra configurations
-    config = configs.light.get_config()
-    train_file_path = os.path.join(train_data_dir, config.train_file_name)
-    validation_file_path = os.path.join(validation_data_dir, config.validation_file_path)
+    config = configs.light_log.get_config()
+    train_file_path = os.path.join(train_data_dir, "cpc.h5")
+    validation_file_path = os.path.join(validation_data_dir, "cpc.h5")
     workdir = config.workdir
     key = config.key
     data_std = config.data_std
+    apply_log = config.apply_log
     num_channels = config.num_channels
     downsample_ratio = config.downsample_ratio
     num_blocks = config.num_blocks
@@ -164,6 +168,7 @@ def main():
         workdir,
         key,
         data_std,
+        apply_log,
         num_channels,
         downsample_ratio,
         num_blocks,

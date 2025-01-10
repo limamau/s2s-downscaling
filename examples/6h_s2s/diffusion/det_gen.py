@@ -39,7 +39,7 @@ def main():
     simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
     
     # extra configurations
-    model_config = configs.light_longer.get_config(train_data_dir, validation_data_dir)
+    model_config = configs.light.get_config()
     train_file_path = os.path.join(train_data_dir, model_config.train_file_name)
     prior_file_path = os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5")
     clip_max = 50

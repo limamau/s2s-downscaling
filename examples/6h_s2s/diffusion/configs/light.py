@@ -12,11 +12,11 @@ def get_config():
     )
     config.key = "precip"
     
-    # Apply log transformation
-    config.apply_log = False
-    
     # Dataset std
     config.data_std = 0.31
+    
+    # Apply log transformation
+    config.apply_log = False
     
     # Resolutions
     config.num_channels = (64, 128, 256)

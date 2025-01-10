@@ -48,7 +48,7 @@ def plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir):
         fig.savefig(os.path.join(figs_dir, f"psd_{lead_time_name}.png"))
         
 
-def print_target_noise(lambda_star, psd_star, cpc):
+def print_target_noise(psd_star, cpc):
     Nx, Ny = cpc.latitude.size, cpc.longitude.size
     sigma_star = np.sqrt(psd_star * Nx * Ny)
     print("Target noise:", sigma_star)
@@ -76,13 +76,13 @@ def main():
     os.makedirs(figs_dir, exist_ok=True)
     
     # to be tuned
-    lambda_star = 1.65e3
+    lambda_star = 1.45e3
     psd_star = 3.2e-2
     
     # main calls
     plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir)
     print("psds saved")
-    print_target_noise(lambda_star, psd_star, cpc)
+    print_target_noise(psd_star, cpc)
     
     
 if __name__ == "__main__":

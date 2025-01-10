@@ -12,9 +12,19 @@ from data.surface_data import SurfaceData, ForecastEnsembleSurfaceData
 
 # TODO: create functionality to apply log during training (and take it out in test)
 
-def get_dataset(file_path: str, key: str, batch_size: int, apply_log: bool=False):
+def get_dataset(
+    file_path: str,
+    key: str,
+    batch_size: int,
+    apply_log: bool=False,
+    epsilon: float=1e-6,
+):
     # Read the dataset from the .hdf5 file.
     images = read_single_array(file_path, key)
+    
+    # Apply log
+    if apply_log:
+        images = jnp.log(images + epsilon)
 
     # Normalize the images
     mu = jnp.mean(images)
@@ -34,6 +44,17 @@ def get_dataset(file_path: str, key: str, batch_size: int, apply_log: bool=False
     ds = ds.as_numpy_iterator()
 
     return ds
+
+
+def denormalize(images, mu, sigma, apply_log=False, epsilon=1e-6):
+    # Denormalize the images
+    images = images * sigma + mu
+
+    # Apply exp if log was applied
+    if apply_log:
+        images = jnp.exp(images) - epsilon
+
+    return images
 
 
 def generate(
@@ -144,7 +165,13 @@ def generate(
                             init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
                             rng=rng_step,
                             num_samples=num_samples//num_chunks,
-                        ) * train_std + train_mean
+                        )
+                        samples = denormalize(
+                            samples, 
+                            train_mean, 
+                            train_std, 
+                            config.apply_log
+                        )
 
                         # Save the samples into the preallocated array
                         start_idx = chunk_idx * (num_samples // num_chunks)
@@ -157,6 +184,10 @@ def generate(
     
     # Clip zeros
     samples = jnp.clip(samples_array[...,0], min=0, max=None)
+    
+    # check for nans
+    if jnp.any(jnp.isnan(samples)):
+        raise ValueError("Nans found in the samples")
     
     return ForecastEnsembleSurfaceData(
         lead_time=prior_sfc_data.lead_time,
