@@ -1,4 +1,5 @@
 import copy, os, tomllib
+import numpy as np
 
 from data.surface_data import SurfaceData
 
@@ -26,6 +27,11 @@ def run_engineering(storm_dates, lead_time_files, cpc_file):
     nearest_lowpass_s2s = copy.deepcopy(nearest_s2s)
     nearest_lowpass_s2s.low_pass_filter(s2s)
     print(f"Nearest low-passed S2S data shape: {nearest_lowpass_s2s.precip.shape}")
+    
+    # filter negative values from nearest_lowpass_s2s
+    nearest_lowpass_s2s.precip = np.where(
+        nearest_lowpass_s2s.precip < 0, 0, nearest_lowpass_s2s.precip
+    )
     
     return s2s, nearest_s2s, nearest_lowpass_s2s
 

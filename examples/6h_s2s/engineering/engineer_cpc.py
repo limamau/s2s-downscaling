@@ -103,6 +103,9 @@ def preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months):
     # clip negative values
     data = np.where(data < 0, 0, data)
     
+    # clip NaN values to 0
+    data = np.where(np.isnan(data), 0, data)
+    
     return SurfaceData(times, lats, lons, precip=data)
 
 
