@@ -8,7 +8,7 @@ from engineering.spectrum import get_1dpsd
 from utils import get_cdf
 
 
-def plot_left_tale(
+def plot_left_tale_det(
     bins_range,
     det_s2s_cdf,
     ens_s2s_cdf,
@@ -36,7 +36,139 @@ def plot_left_tale(
     fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_left.png"))
 
 
-def plot_right_tale(
+def plot_right_tale_ens(
+    bins_range,
+    det_s2s_cdf,
+    ens_s2s_cdf,
+    det_diff_cdf,
+    ens_diff_cdf,
+    cpc_cdf,
+    lead_time_name,
+    figs_dir,
+):
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    # ensemble mean and spread
+    ens_s2s_mean = np.mean(ens_s2s_cdf, axis=0)
+    det_diff_mean = np.mean(det_diff_cdf, axis=0)
+    ens_diff_mean = np.mean(ens_diff_cdf, axis=0)
+    # use std for spread
+    ens_s2s_std = np.std(ens_s2s_cdf, axis=0)
+    det_diff_std = np.std(det_diff_cdf, axis=0)
+    ens_diff_std = np.std(ens_diff_cdf, axis=0)
+    # get bounds
+    ens_s2s_lower_bound = np.maximum(ens_s2s_mean - ens_s2s_std, 0)
+    ens_s2s_upper_bound = np.maximum(ens_s2s_mean + ens_s2s_std, 0)
+    det_diff_lower_bound = np.maximum(det_diff_mean - det_diff_std, 0)
+    det_diff_upper_bound = np.maximum(det_diff_mean + det_diff_std, 0)
+    ens_diff_lower_bound = np.maximum(ens_diff_mean - ens_diff_std, 0)
+    ens_diff_upper_bound = np.maximum(ens_diff_mean + ens_diff_std, 0)
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(0.3, None)
+    ax.set_ylim(0.8, 1.0)
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Cumulative distribution function")
+
+    ax.plot(bins_range, det_s2s_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.fill_between(
+        bins_range,
+        ens_s2s_lower_bound,
+        ens_s2s_upper_bound,
+        color=cmap(2),
+        alpha=0.3,
+        label="S2S ens.",
+    )
+    ax.fill_between(
+        bins_range,
+        det_diff_lower_bound,
+        det_diff_upper_bound,
+        color=cmap(5),
+        alpha=0.3,
+        label="det-diff",
+    )
+    ax.fill_between(
+        bins_range,
+        ens_diff_lower_bound,
+        ens_diff_upper_bound,
+        color=cmap(6),
+        alpha=0.3,
+        label="ens-diff",
+    )
+    
+    ax.legend()
+    plt.title(f"lead time = {lead_time_name}")
+    fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_right.png"))
+
+
+def plot_left_tale_ens(
+    bins_range,
+    det_s2s_cdf,
+    ens_s2s_cdf,
+    det_diff_cdf,
+    ens_diff_cdf,
+    cpc_cdf,
+    lead_time_name,
+    figs_dir,
+):
+    fig, ax = plt.subplots(figsize=(8, 4))
+    
+    # ensemble mean and spread
+    ens_s2s_mean = np.mean(ens_s2s_cdf, axis=0)
+    det_diff_mean = np.mean(det_diff_cdf, axis=0)
+    ens_diff_mean = np.mean(ens_diff_cdf, axis=0)
+    # use std for spread
+    ens_s2s_std = np.std(ens_s2s_cdf, axis=0)
+    det_diff_std = np.std(det_diff_cdf, axis=0)
+    ens_diff_std = np.std(ens_diff_cdf, axis=0)
+    # get bounds
+    ens_s2s_lower_bound = np.maximum(ens_s2s_mean - ens_s2s_std, 0)
+    ens_s2s_upper_bound = np.maximum(ens_s2s_mean + ens_s2s_std, 0)
+    det_diff_lower_bound = np.maximum(det_diff_mean - det_diff_std, 0)
+    det_diff_upper_bound = np.maximum(det_diff_mean + det_diff_std, 0)
+    ens_diff_lower_bound = np.maximum(ens_diff_mean - ens_diff_std, 0)
+    ens_diff_upper_bound = np.maximum(ens_diff_mean + ens_diff_std, 0)
+
+    ax.plot(bins_range, det_s2s_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.fill_between(
+        bins_range,
+        ens_s2s_lower_bound,
+        ens_s2s_upper_bound,
+        color=cmap(2),
+        alpha=0.3,
+        label="S2S ens.",
+    )
+    ax.fill_between(
+        bins_range,
+        det_diff_lower_bound,
+        det_diff_upper_bound,
+        color=cmap(5),
+        alpha=0.3,
+        label="det-diff",
+    )
+    ax.fill_between(
+        bins_range,
+        ens_diff_lower_bound,
+        ens_diff_upper_bound,
+        color=cmap(6),
+        alpha=0.3,
+        label="ens-diff",
+    )
+    
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 1.0)
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Cumulative distribution function")
+
+    ax.legend()
+    plt.title(f"lead time = {lead_time_name}")
+    fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_left.png"))
+
+
+def plot_right_tale_det(
     bins_range,
     det_s2s_cdf,
     ens_s2s_cdf,
@@ -78,22 +210,30 @@ def plot_lead_time_distribution(
 ):
     # get data
     cpc_data = cpc.precip.flatten()
-    det_s2s_data = det_s2s.precip[lead_time_idx].flatten()
-    ens_s2s_data = ens_s2s.precip[lead_time_idx].flatten()
-    det_diff_data = det_diff.precip[lead_time_idx].flatten()
-    ens_diff_data = ens_diff.precip[lead_time_idx].flatten()
+    det_s2s_data = det_s2s.precip[lead_time_idx]
+    ens_s2s_data = ens_s2s.precip[lead_time_idx]
+    det_diff_data = det_diff.precip[lead_time_idx]
+    ens_diff_data = ens_diff.precip[lead_time_idx]
+    
+    bins_range = np.linspace(0, 5, bins)
+    
+    def get_cdf_ens(data):
+        num_ensembles = data.shape[0]
+        cdf_ens = np.zeros((num_ensembles, bins))
+        for i in enumerate(range(num_ensembles)):
+            cdf_ens[i,:] = get_cdf(data[i,...], bins_range)
+        return cdf_ens
 
     # compute CDFs
-    bins_range = np.linspace(0, 5, bins)
     det_s2s_cdf = get_cdf(det_s2s_data, bins_range)
-    ens_s2s_cdf = get_cdf(ens_s2s_data, bins_range)
-    det_diff_cdf = get_cdf(det_diff_data, bins_range)
-    ens_diff_cdf = get_cdf(ens_diff_data, bins_range)
+    ens_s2s_cdf = get_cdf_ens(ens_s2s_data)
+    det_diff_cdf = get_cdf_ens(det_diff_data)
+    ens_diff_cdf = get_cdf_ens(ens_diff_data)
     cpc_cdf = get_cdf(cpc_data, bins_range)
     
     # call left and right tale plots
     lead_time_name = det_s2s.lead_time[lead_time_idx]
-    plot_left_tale(
+    plot_left_tale_ens(
         bins_range,
         det_s2s_cdf,
         ens_s2s_cdf,
@@ -103,7 +243,7 @@ def plot_lead_time_distribution(
         lead_time_name,
         figs_dir,
     )
-    plot_right_tale(
+    plot_right_tale_ens(
         bins_range,
         det_s2s_cdf,
         ens_s2s_cdf,
@@ -195,7 +335,7 @@ def plot_lead_time_timeseries(
     ens_s2s_std = np.std(ens_s2s_timeseries, axis=0)
     det_diff_std = np.std(det_diff_timeseries, axis=0)
     ens_diff_std = np.std(ens_diff_timeseries, axis=0)
-    # clip negative values
+    # get bounds
     ens_s2s_lower_bound = np.maximum(ens_s2s - ens_s2s_std, 0)
     ens_s2s_upper_bound = np.maximum(ens_s2s + ens_s2s_std, 0)
     det_diff_lower_bound = np.maximum(det_diff_mean - det_diff_std, 0)
@@ -315,7 +455,7 @@ def make_plots(
     
     # define figs directory
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    figs_dir = os.path.join(script_dir, "analysis_figs")
+    figs_dir = os.path.join(script_dir, "figs/analysis")
     os.makedirs(figs_dir, exist_ok=True)
     
     # plot gifs for each lead time (and each event)
@@ -333,44 +473,44 @@ def make_plots(
         )
     print("maps saved")
     
-    # # plot timeseries for each lead time (and each event)
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_timeseries(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("timeseries saved")
+    # plot timeseries for each lead time (and each event)
+    for lead_time_idx in range(3):
+        plot_lead_time_timeseries(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("timeseries saved")
     
-    # # plot distribution for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_distribution(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("distributions saved")
+    # plot distribution for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_distribution(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("distributions saved")
     
-    # # plot psds for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_psd(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("psds saved")
+    # plot psds for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_psd(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("psds saved")
 
 
 def main():
@@ -385,8 +525,13 @@ def main():
     # extra configurations
     s2s_det_path = os.path.join(test_data_dir, "det_s2s_nearest.h5")
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
-    diff_det_path = os.path.join(simulations_dir, "diffusion/det_light_cli50_ens50.h5")
-    diff_ens_path = os.path.join(simulations_dir, "diffusion/ens_light_cli50_ens50.h5")
+    cli = 50
+    diff_det_path = os.path.join(
+        simulations_dir, f"diffusion/det_light_cli{cli}_ens50.h5",
+    )
+    diff_ens_path = os.path.join(
+        simulations_dir, f"diffusion/ens_light_cli{cli}_ens50.h5",
+    )
     cpc_path = os.path.join(test_data_dir,"cpc.h5")
     # time_idx for snapshots
     time_idxs = [i for i in range(16)]

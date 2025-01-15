@@ -71,8 +71,10 @@ def main():
     det = ForecastSurfaceData.load_from_h5(det_path, ["precip"])
     ens = ForecastEnsembleSurfaceData.load_from_h5(ens_path, ["precip"])
     
+    # TODO: normalize this data using config from launched model
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    figs_dir = os.path.join(script_dir, "tuning_figs")
+    figs_dir = os.path.join(script_dir, "figs/tuning")
     os.makedirs(figs_dir, exist_ok=True)
     
     # to be tuned

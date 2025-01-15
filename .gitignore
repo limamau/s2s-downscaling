@@ -2,7 +2,6 @@ backup/
 experiments/
 figs/
 gifs/
-*_figs/
 checkpoints/
 events.out.tfevents*
 __pycache__/
