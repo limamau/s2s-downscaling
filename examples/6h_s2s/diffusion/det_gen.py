@@ -11,7 +11,7 @@ from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
 
 import configs
-from gen_utils import denormalize
+from gen_utils import normalize, denormalize
 
 
 def preprocess_prior_ds(prior_file_path):
@@ -103,8 +103,8 @@ def generate(
     generate = jax.jit(sampler.generate, static_argnames=('num_samples',))
     
     # Get test dataset
-    prior_sfc_data.normalize() # use train mean and std to normalize instead???
     test_ds = prior_sfc_data.precip
+    test_ds = normalize(test_ds, apply_log=config.apply_log)
     test_ds = jnp.expand_dims(test_ds, axis=-1) # channels
     
     # Calculate the new shape for the samples array
@@ -147,8 +147,8 @@ def generate(
                         )
 
                         # Save the samples into the preallocated array
-                        start_idx = chunk_idx * (num_ensembles*num_samples // num_chunks)
-                        end_idx = start_idx + (num_ensembles*num_samples // num_chunks) - 1
+                        start_idx = chunk_idx * (num_samples // num_chunks)
+                        end_idx = start_idx + (num_samples // num_chunks)
                         samples_array = samples_array.at[
                             lead_time_idx, start_idx:end_idx, time_idx,
                         ].set(samples)

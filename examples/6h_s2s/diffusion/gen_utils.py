@@ -39,6 +39,21 @@ def get_dataset(
     return ds
 
 
+def normalize(images, mu=None, sigma=None, apply_log=False, epsilon=1e-6):
+    if mu is None:
+        mu = jnp.mean(images)
+        
+    if sigma is None:
+        sigma = jnp.std(images)
+        
+    images = (images - mu) / sigma
+
+    if apply_log:
+        images = jnp.log(images + epsilon)
+
+    return images
+
+
 def denormalize(images, mu, sigma, apply_log=False, epsilon=1e-6):
     # Denormalize the images
     images = images * sigma + mu

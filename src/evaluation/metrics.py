@@ -57,6 +57,11 @@ def crps(obs, sim):
     ## Returns:
     crps (float): Continuous Ranked Probability Score.
     """
+    if len(sim.shape) > len(obs.shape):
+        # this is done because I use the ensemble dimension as the first one
+        # and properscoring expects the ensemble dimension as the last one
+        sim = np.transpose(sim)
+        obs = np.transpose(obs)
     return np.mean(ps.crps_ensemble(obs, sim))
 
 
@@ -105,11 +110,11 @@ def perkins_skill_score(obs, sim, n_quantiles=2000):
 
 
 def psd_distance(
-    distance,
     obs,
+    sim,
     obs_x_length,
     obs_y_length,
-    sim,
+    distance="l2",
     sim_x_length=None,
     sim_y_length=None,
     num=100,
@@ -193,4 +198,14 @@ def wasserstein_distance(obs, sim):
     ## Returns:
     wasserstein_distance (float): Wasserstein distance.
     """
-    return wass_dist(obs, sim)
+    if len(sim.shape) > len(obs.shape):
+        num_ensembles = sim.shape[0]
+        wass_d = 0.0
+        for i in range(num_ensembles):
+            wass_d += wass_dist(obs.flatten(), sim[i].flatten())
+        wass_d /= num_ensembles
+    
+    else:
+        wass_d = wass_dist(obs.flatten(), sim.flatten())
+    
+    return wass_d

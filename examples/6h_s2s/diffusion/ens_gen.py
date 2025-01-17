@@ -1,17 +1,16 @@
 import jax, os, tomllib
 import jax.numpy as jnp
 import jax.numpy as jnp
-import numpy as np
 from tqdm import tqdm
 
 from data.surface_data import SurfaceData, ForecastEnsembleSurfaceData
-from data.surface_data import ForecastSurfaceData, ForecastEnsembleSurfaceData
+from data.surface_data import  ForecastEnsembleSurfaceData
 from swirl_dynamics.lib import diffusion as dfn_lib
 from swirl_dynamics.lib import solvers as solver_lib
 from swirl_dynamics.projects import probabilistic_diffusion as dfn
 
 import configs
-from gen_utils import denormalize
+from gen_utils import normalize, denormalize
 
 
 def generate(
@@ -83,8 +82,8 @@ def generate(
     generate = jax.jit(sampler.generate, static_argnames=('num_samples',))
     
     # Get test dataset
-    prior_sfc_data.normalize() # use train mean and std to normalize instead???
     test_ds = prior_sfc_data.precip
+    test_ds = normalize(test_ds, apply_log=config.apply_log)
     test_ds = jnp.expand_dims(test_ds, axis=-1) # channels
     
     # Calculate the new shape for the samples array
@@ -110,33 +109,27 @@ def generate(
         for lead_time_idx in range(num_lead_times):
             for ensemble_idx in range(num_ensembles):
                 for time_idx in range(num_times):
-                    for chunk_idx in range(num_chunks):
-                        rng, rng_step = jax.random.split(rng)
+                    rng, rng_step = jax.random.split(rng)
 
-                        # Generate samples
-                        samples = generate(
-                            init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
-                            rng=rng_step,
-                            num_samples=num_samples//num_chunks,
-                        )
-                        samples = denormalize(
-                            samples, 
-                            train_mean, 
-                            train_std, 
-                            config.apply_log,
-                        )
+                    # Generate samples
+                    samples = generate(
+                        init_sample=test_ds[lead_time_idx, ensemble_idx, time_idx],
+                        rng=rng_step,
+                        num_samples=num_samples//num_chunks,
+                    )
+                    samples = denormalize(
+                        samples, 
+                        train_mean, 
+                        train_std, 
+                        config.apply_log,
+                    )
 
-                        # Save the samples into the preallocated array
-                        # start_idx = chunk_idx * (num_ensembles*num_samples // num_chunks)
-                        # end_idx = start_idx + (num_ensembles*num_samples // num_chunks) - 1
-                        # samples_array = samples_array.at[
-                        #     lead_time_idx, start_idx:end_idx, time_idx,
-                        # ].set(samples)
-                        samples_array = samples_array.at[
-                            lead_time_idx, ensemble_idx, time_idx
-                        ].set(samples[1,...])
+                    # Save the samples into the preallocated array
+                    samples_array = samples_array.at[
+                        lead_time_idx, ensemble_idx, time_idx
+                    ].set(samples[1,...])
 
-                        pbar.update(1)
+                    pbar.update(1)
     
     # Clip zeros
     samples = jnp.clip(samples_array[...,0], min=0, max=None)
@@ -166,7 +159,7 @@ def main():
     simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
     
     # extra configurations
-    model_config = configs.light.get_config()
+    model_config = configs.light_log.get_config()
     train_file_path = os.path.join(train_data_dir, model_config.train_file_name)
     prior_file_path = os.path.join(test_data_dir, "ens_s2s_nearest_low-pass.h5")
     clip_max = 50

@@ -140,7 +140,7 @@ def main():
     validation_data_dir = os.path.join(base, dirs["subs"]["validation"])
     
     # extra configurations
-    config = configs.light_log.get_config()
+    config = configs.heavy.get_config()
     train_file_path = os.path.join(train_data_dir, "cpc.h5")
     validation_file_path = os.path.join(validation_data_dir, "cpc.h5")
     workdir = config.workdir

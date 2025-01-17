@@ -15,7 +15,7 @@ def resample(
     high_multiplier,
 ):
     # Read total precipitation in a single shot
-    with h5py.File(os.path.join(train_data_dir, "cpc_6h.h5"), "r") as f:
+    with h5py.File(os.path.join(train_data_dir, "cpc.h5"), "r") as f:
         total_precip = np.sum(f["precip"][:,:,:], axis=(1,2))
         Nx, Ny = f["precip"][0,:,:].shape
 
@@ -33,7 +33,7 @@ def resample(
     print("High percentile: ", high_p)
 
     # Resample and modify images
-    with h5py.File(os.path.join(train_data_dir, "cpc_6h.h5"), "r") as f:
+    with h5py.File(os.path.join(train_data_dir, "cpc.h5"), "r") as f:
         data = f["precip"][:,:,:]
         lons = f["longitude"][:]
         lats = f["latitude"][:]
@@ -97,7 +97,7 @@ def resample(
     times = times[list(idxs)]
     data = data[list(idxs),:,:]
     
-    write_dataset(times, lats, lons, data, os.path.join(train_data_dir, "cpc_6h_resampled.h5"))
+    # write_dataset(times, lats, lons, data, os.path.join(train_data_dir, "cpc_6h_resampled.h5"))
     
     print("Done!")
         
