@@ -4,6 +4,7 @@ from utils import write_dataset
 from engineering_utils import concat_wrf, regrid_wrf
 from configs.wrf import get_config
 
+
 def process_year(storm_dir, new_lons, new_lats, initial_date, final_date):
     # Read and plot original datasets
     wrf_ds = concat_wrf(storm_dir, initial_date, final_date)
