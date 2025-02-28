@@ -41,7 +41,6 @@ def check_negative_values(data):
         print("Negative values found in the data")
     else:
         print("No negative values found in the data")
-    
 
 
 def main():

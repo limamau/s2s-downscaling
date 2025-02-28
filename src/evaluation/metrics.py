@@ -1,9 +1,10 @@
 import numpy as np
 import properscoring as ps
 from scipy.stats import wasserstein_distance as wass_dist
+from scipy.stats import rankdata
 
 from utils import get_cdf, get_pdf
-from engineering.spectrum import get_1dpsd
+from engineering.spectrum import get_2dpsd
 
 
 # Metric functions in alphabetical order:
@@ -59,6 +60,7 @@ def crps(obs, sim):
     """
     if len(sim.shape) > len(obs.shape):
         # this is done because I use the ensemble dimension as the first one
+        # (actually the second after lead time, but we calculate that for each lead time)
         # and properscoring expects the ensemble dimension as the last one
         sim = np.transpose(sim)
         obs = np.transpose(obs)
@@ -109,67 +111,60 @@ def perkins_skill_score(obs, sim, n_quantiles=2000):
     return pss
 
 
-def psd_distance(
-    obs,
-    sim,
-    obs_x_length,
-    obs_y_length,
-    distance="l2",
-    sim_x_length=None,
-    sim_y_length=None,
-    num=100,
-):
+def psd_distance(obs, sim, x_length, y_length):
+    # Get the 2D PSD for observations
+    obs_wavelengths, obs_psd = get_2dpsd(obs, x_length, y_length)
+    dx = obs_wavelengths[0][1] - obs_wavelengths[0][0]
+    dy = obs_wavelengths[1][1] - obs_wavelengths[1][0]
+
+    if len(sim.shape) > len(obs.shape):
+        num_ensembles = sim.shape[0]
+        psd_distances = []
+        
+        for i in range(num_ensembles):
+            # Calculate the PSD distance for each ensemble member
+            _, sim_psd = get_2dpsd(sim[i], x_length, y_length)
+            psd_diff = np.abs(sim_psd - obs_psd)
+            # Integral approximation
+            psd_distance = np.sum(psd_diff) * dx * dy
+            psd_distances.append(psd_distance)
+        
+        # Average over ensemble members
+        av_psd_dist = np.mean(psd_distances)
+    else:
+        # Calculate the PSD distance for a single simulation
+        _, sim_psd = get_2dpsd(sim, x_length, y_length)
+        psd_diff = np.abs(sim_psd - obs_psd)
+        # Integral approximation
+        av_psd_dist = np.sum(psd_diff) * dx * dy
+
+    return av_psd_dist
+
+
+def rank_histogram(obs, sim):
     """
-    Calculate the Potential Spectral Density (PSD) distance between two arrays.
-    If the physical lengths of the x and y axes are not provided for the simulated data,
-    it is assumed that they are the same as the observed data (this will save some computation time).
+    Calculate the Rank Histogram between two arrays.
 
     ## Parameters:
-    distance (string): Distance metric to use. Options are "l1", "l2", and "max".
     obs (array): Observed values.
-    obs_x_length (float): Physical length of the x-axis.
-    obs_y_length (float): Physical length of the y-axis.
     sim (array): Simulated values.
-    sim_x_length (optional, float): Physical length of the x-axis for the simulated data. Default is None.
-    sim_y_length (optional, float): Physical length of the y-axis for the simulated data. Default is None.
-    num (int): Number of points to interpolate the PSD. Standard value is 100.
 
     ## Returns:
-    psd-distance (float): PSD distance.
+    rank_histogram (float): Rank Histogram.
     """
-    different_lengths = True
-    if (sim_x_length is None) & (sim_y_length is None):
-        sim_x_length = obs_x_length
-        sim_y_length = obs_y_length
-        different_lengths = False
-        
-    # Get wavelengths and PSDs
-    obs_wavelengths, obs_psd = get_1dpsd(obs, obs_x_length, obs_y_length)
-    sim_wavelengths, sim_psd = get_1dpsd(sim, sim_x_length, sim_y_length)
-    
-    if different_lengths:
-        # Interpolate to the commons wavelengths
-        min_wavelength = np.max([obs_wavelengths[0], sim_wavelengths[0]])
-        max_wavelength = np.min([obs_wavelengths[-1], sim_wavelengths[-1]])
-        wavelengths = np.linspace(min_wavelength, max_wavelength, num=num)
-        obs_psd = np.interp(wavelengths, obs_wavelengths, obs_psd)
-        sim_psd = np.interp(wavelengths, sim_wavelengths, sim_psd)
-    
-    else:
-        # Use the observed wavelengths (as simulated will be the same)
-        wavelengths = obs_wavelengths
-    
-    match distance:
-        case "l1":
-            psd_distance = np.mean(np.abs(obs_psd - sim_psd))
-        case "l2":
-            psd_distance = np.sqrt(np.mean((obs_psd - sim_psd)**2))
-        case "max":
-            psd_distance = np.max(np.abs(obs_psd - sim_psd))
-        case _:
-            raise ValueError(f"Invalid distance metric: {distance}")
-            
-    return psd_distance
+    combined=np.vstack((obs[np.newaxis],sim))
+
+    ranks=np.apply_along_axis(lambda x: rankdata(x,method='min'), 0, combined)
+
+    ties=np.sum(ranks[0]==ranks[1:], axis=0)
+    ranks=ranks[0]
+    tie=np.unique(ties)
+
+    for i in range(1,len(tie)):
+        index=ranks[ties==tie[i]]
+        ranks[ties==tie[i]]=[np.random.randint(index[j],index[j]+tie[i]+1,tie[i])[0] for j in range(len(index))]
+
+    return np.histogram(ranks, bins=np.linspace(0.5, combined.shape[0]+0.5, combined.shape[0]+1))
 
 
 def root_mean_squared_error(obs, sim):

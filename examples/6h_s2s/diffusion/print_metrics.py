@@ -1,19 +1,34 @@
 import os, tomllib
 
 from data.surface_data import SurfaceData, ForecastSurfaceData, ForecastEnsembleSurfaceData
-from evaluation.metrics import crps, wasserstein_distance, psd_distance
+from evaluation.metrics import crps, wasserstein_distance, psd_distance, rank_histogram
+    
+    
+def plot_metric(s2s_det, s2s_ens, diff_det, diff_ens, cpc, name, metric):
+    for i, lead_time in enumerate(s2s_det.lead_time):
+        print(f"Lead time: {lead_time}")
+        print(f"  S2S-det: {metric(cpc.precip, s2s_det.precip[i])}")
+        print(f"  S2S-ens: {metric(cpc.precip, s2s_ens.precip[i])}")
+        print(f"  diff-det: {metric(cpc.precip, diff_det.precip[i])}")
+        print(f"  diff-ens: {metric(cpc.precip, diff_ens.precip[i])}")
+    print()
 
 
 def print_metric(s2s_det, s2s_ens, diff_det, diff_ens, cpc, name, metric, *args):
     print(f"Metric: {name}")
     for i, lead_time in enumerate(s2s_det.lead_time):
         print(f"Lead time: {lead_time}")
-        print(f"  S2S-det: {round(metric(cpc.precip, s2s_det.precip[i], *args), 2)}")
-        print(f"  S2S-ens: {round(metric(cpc.precip, s2s_ens.precip[i], *args), 2)}")
-        print(f"  diff-det: {round(metric(cpc.precip, diff_det.precip[i], *args), 2)}")
-        print(f"  diff-ens: {round(metric(cpc.precip, diff_ens.precip[i], *args), 2)}")
+        print(f"  S2S-det: {metric(cpc.precip, s2s_det.precip[i], *args)}")
+        print(f"  S2S-ens: {metric(cpc.precip, s2s_ens.precip[i], *args)}")
+        print(f"  diff-det: {metric(cpc.precip, diff_det.precip[i], *args)}")
+        print(f"  diff-ens: {metric(cpc.precip, diff_ens.precip[i], *args)}")
     print()
     
+    
+def plot_rank_histogram(s2s_ens, diff_det, diff_ens, cpc):
+    for i, lead_time in enumerate(s2s_ens.lead_time):
+        pass
+
 
 def evaluate(s2s_det, s2s_ens, diff_det, diff_ens, cpc):
     # crps
@@ -28,12 +43,17 @@ def evaluate(s2s_det, s2s_ens, diff_det, diff_ens, cpc):
         "Wasserstein distance", wasserstein_distance,
     )
     
-    # # psd distance
-    # spatial_lengths = s2s_det.get_spatial_lengths()
-    # print_metric(
-    #     s2s_det, s2s_ens, diff_det, diff_ens, cpc,
-    #     "PSD distance", psd_distance, *spatial_lengths,
-    # )
+    # psd distance
+    spatial_lengths = s2s_det.get_spatial_lengths()
+    print_metric(
+        s2s_det, s2s_ens, diff_det, diff_ens, cpc,
+        "PSD distance", psd_distance, *spatial_lengths,
+    )
+    
+    # rank histogram
+    plot_rank_histogram(
+        s2s_ens, diff_det, diff_ens, cpc,
+    )
 
 
 def main():
@@ -50,10 +70,10 @@ def main():
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
     cli = 50
     diff_det_path = os.path.join(
-        simulations_dir, f"diffusion/det_light_cli{cli}_ens50.h5",
+        simulations_dir, f"diffusion/det_heavy_cli{cli}_ens50.h5",
     )
     diff_ens_path = os.path.join(
-        simulations_dir, f"diffusion/ens_light_cli{cli}_ens50.h5",
+        simulations_dir, f"diffusion/ens_heavy_cli{cli}_ens50.h5",
     )
     cpc_path = os.path.join(test_data_dir,"cpc.h5")
     

@@ -173,7 +173,7 @@ def plot_lead_time_timeseries(
 
 
 def make_plots(
-    test_data_dir, 
+    test_data_dir,
     plot_time_idx,
     lead_time_idxs,
     number_idx1,
@@ -182,6 +182,9 @@ def make_plots(
     # cpc data
     cpc_file = os.path.join(test_data_dir, "cpc.h5")
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
+    # print("lat:", cpc.latitude)
+    # print("lon:", cpc.longitude)
+    # a = undefined
     # deterministic data
     # det_s2s_file = os.path.join(test_data_dir, "det_s2s.h5")
     # det_s2s = ForecastSurfaceData.load_from_h5(det_s2s_file, ["precip"])

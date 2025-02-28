@@ -63,11 +63,30 @@ def regrid_cpc(data, xs, ys, extent):
     return cut_data(new_lon, new_lat, new_data, extent)
 
 
-def transform_cpc_coordinates(xs, ys):
+def transform_cpc_coordinates(chx, chy):
     transformer = Transformer.from_proj(2056, 4326, always_xy=True)
-    xx, yy = np.meshgrid(xs, ys)
-    lon_2d, lat_2d = transformer.transform(xx, yy)
-    return lon_2d, lat_2d
+    xx, yy = np.meshgrid(chx, chy)
+    lon, lat = transformer.transform(xx, yy)
+    # print("old transform:")
+    # print("lon min and max: {:.2f}, {:.2f}".format(lon.min(), lon.max()))
+    # print("lat min and max: {:.2f}, {:.2f}".format(lat.min(), lat.max()))
+    # a = undefined
+    return lon, lat
+
+
+def transform_cpc_coordinates_new(chx, chy):
+    chxv, chyv = np.meshgrid(chx, chy)
+    transformer = Transformer.from_crs(
+        "epsg:21781",
+        "epsg:4326",
+        always_xy=True,
+    )
+    lon, lat = transformer.transform(chxv, chyv)
+    # print("new transform:")
+    # print("lon min and max: {:.2f}, {:.2f}".format(lon.min(), lon.max()))
+    # print("lat min and max: {:.2f}, {:.2f}".format(lat.min(), lat.max()))
+    # a = undefined
+    return lon, lat
 
 
 def process_month(raw_data_dir, initial_date, final_date, xs, ys, new_extent):

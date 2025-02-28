@@ -527,10 +527,10 @@ def main():
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
     cli = 50
     diff_det_path = os.path.join(
-        simulations_dir, f"diffusion/det_light_cli{cli}_ens50.h5",
+        simulations_dir, f"diffusion/det_heavy_cli{cli}_ens50.h5",
     )
     diff_ens_path = os.path.join(
-        simulations_dir, f"diffusion/ens_light_cli{cli}_ens50.h5",
+        simulations_dir, f"diffusion/ens_heavy_cli{cli}_ens50.h5",
     )
     cpc_path = os.path.join(test_data_dir,"cpc.h5")
     # time_idx for snapshots

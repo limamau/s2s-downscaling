@@ -3,7 +3,7 @@ checkpoints/
 examples/*/dirs.toml
 events.out.tfevents*
 experiments/
-figs/
+figs*/
 gifs/
 src/s2s_downscaling.egg-info
 venv/

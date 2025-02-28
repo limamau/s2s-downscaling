@@ -15,23 +15,23 @@ from gen_utils import normalize, denormalize
 
 
 def preprocess_prior_ds(prior_file_path):
-        # Read test surface data
-        prior_sfc_data = ForecastSurfaceData.load_from_h5(prior_file_path, ["precip"])
-        
-        # Transform ForecastSurfaceData to jnp array and expand dims (numbers and channels)
-        precip = np.expand_dims(prior_sfc_data.precip, axis=1)
-        
-        # Tranform ForecastSurfaceData in ForecastEnsembleSurfaceData with one ensemble
-        prior_sfc_data = ForecastEnsembleSurfaceData(
-            lead_time=prior_sfc_data.lead_time,
-            number=np.array([0]),
-            time=prior_sfc_data.time,
-            latitude=prior_sfc_data.latitude,
-            longitude=prior_sfc_data.longitude,
-            precip=precip,
-        )
-        
-        return prior_sfc_data
+    # Read test surface data
+    prior_sfc_data = ForecastSurfaceData.load_from_h5(prior_file_path, ["precip"])
+    
+    # Transform ForecastSurfaceData to jnp array and expand dims (numbers and channels)
+    precip = np.expand_dims(prior_sfc_data.precip, axis=1)
+    
+    # Tranform ForecastSurfaceData in ForecastEnsembleSurfaceData with one ensemble
+    prior_sfc_data = ForecastEnsembleSurfaceData(
+        lead_time=prior_sfc_data.lead_time,
+        number=np.array([0]),
+        time=prior_sfc_data.time,
+        latitude=prior_sfc_data.latitude,
+        longitude=prior_sfc_data.longitude,
+        precip=precip,
+    )
+    
+    return prior_sfc_data
     
     
 def generate(
@@ -183,7 +183,7 @@ def main():
     simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
     
     # extra configurations
-    model_config = configs.light_log.get_config()
+    model_config = configs.heavy.get_config()
     train_file_path = os.path.join(train_data_dir, model_config.train_file_name)
     prior_file_path = os.path.join(test_data_dir, "det_s2s_nearest_low-pass.h5")
     clip_max = 50
