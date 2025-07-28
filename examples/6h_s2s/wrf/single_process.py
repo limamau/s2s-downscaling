@@ -3,7 +3,7 @@ import os
 import numpy as np
 import tomllib
 import xarray as xr
-from configs.config import get_config
+from configs.single import get_config
 from tqdm import tqdm
 
 from data.surface_data import SurfaceData
@@ -75,7 +75,7 @@ def run_processing(wrf_output_dir, cpc_file):
         times,
         latitudes,
         longitudes,
-        precip=wrf_data,
+        precip=wrf_data / HOURLY_RESOLUTION,
     )
 
 
@@ -93,14 +93,16 @@ def main():
     config = get_config()
     wrf_output_dir = os.path.join(raw_wrf_dir, config.output_dir)
     cpc_file = os.path.join(test_data_dir, config.cpc_file)
-    wrf_simulations_dir = os.path.join(simulations_dir, config.wrf_simulations_dir)
+    wrf_simulations_dir = os.path.join(simulations_dir, config.single_wrf_simulations)
     os.makedirs(wrf_simulations_dir, exist_ok=True)
     forecast_date = config.forecast_date
     member_idx = config.member_idx
 
     # main calls
     wrf = run_processing(wrf_output_dir, cpc_file)
-    wrf.save_to_h5(os.path.join(wrf_simulations_dir, "{}_{}.h5".format(forecast_date, member_idx)))
+    wrf.save_to_h5(
+        os.path.join(wrf_simulations_dir, "{}_{}.h5".format(forecast_date, member_idx))
+    )
 
 
 if __name__ == "__main__":

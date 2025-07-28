@@ -1,1 +1,3 @@
-from . import config
+__all__ = ["single"]
+
+from . import single

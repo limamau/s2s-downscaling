@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import tomllib
-from configs.config import get_config
+from configs.single import get_config
 
 from data.surface_data import SurfaceData
 from evaluation.plots import CURVE_CMAP, plot_maps
@@ -42,12 +42,9 @@ def save_timeseries(wrf, s2s, cpc, lead_time_idx, member_idx, figs_dir):
         s2s.precip[lead_time_idx, member_idx, time_idxs],
         axis=(-1, -2),
     )
-    wrf_timeseries = (
-        np.mean(
-            wrf.precip[time_idxs],
-            axis=(-1, -2),
-        )
-        / S2S_DIVIDER
+    wrf_timeseries = np.mean(
+        wrf.precip[time_idxs],
+        axis=(-1, -2),
     )
     cpc_timeseries = np.mean(
         cpc.precip[time_idxs],
@@ -93,9 +90,13 @@ def main():
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
     s2s_file = os.path.join(test_data_dir, config.s2s_file)
     s2s = SurfaceData.load_from_h5(s2s_file, ["precip"])
-    wrf_simulations_dir = os.path.join(simulations_dir, config.wrf_simulations_dir)
+    wrf_simulations_dir = os.path.join(simulations_dir, config.single_wrf_simulations)
     wrf = SurfaceData.load_from_h5(
-        os.path.join(wrf_simulations_dir, "{}_{}.h5".format(config.forecast_date, config.member_idx)), ["precip"]
+        os.path.join(
+            wrf_simulations_dir,
+            "{}_{}.h5".format(config.forecast_date, config.member_idx),
+        ),
+        ["precip"],
     )
     member_idx = config.member_idx
     lead_time_idx = config.lead_time_idx
