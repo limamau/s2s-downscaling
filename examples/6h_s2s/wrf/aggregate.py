@@ -7,22 +7,29 @@ import tomllib
 from data.surface_data import ForecastEnsembleSurfaceData, SurfaceData
 
 # date: [ensemble-members, ...]
-AGGREGATION_DICT = {
-    "2018-06-04": [25, 38],
-    "2018-05-28": [46, 45],
-    "2018-05-21": [1, 14],
-}
-LINES_UNTIL_EVENT_CHANGE = 3  # limamau: still not used
+AGGREGATION_LIST = [
+    {
+        "2018-06-04": [25, 38],
+        "2018-05-28": [46, 45],
+        "2018-05-21": [1, 14],
+    },
+    {
+        "2021-06-21": [0, 11],
+        "2021-06-14": [5, 26],
+        "2021-06-07": [0, 17],
+    }
+]
+LINES_UNTIL_EVENT_CHANGE = 3
 LEAD_TIMES = ["1-week", "2-week", "3-week"]
 NUMBERS = np.array([0, 1])
 
 
-def aggregate(single_dir, aggregate_dir):
-    # run aggregation
+def aggregate_event(single_dir, aggregate_dir, aggregation_dict):
     first_number_flag = True
     first_lead_time_flag = True
+
     # lead-time aggregation loop
-    for date, ens_idxs in AGGREGATION_DICT.items():
+    for (date, ens_idxs) in aggregation_dict.items():
         # ensemble number aggregation loop
         for ens_idx in ens_idxs:
             single_sfc_data = SurfaceData.load_from_h5(
@@ -50,14 +57,28 @@ def aggregate(single_dir, aggregate_dir):
             )
         first_number_flag = True
 
+    # time, lat, lon, precip
+    return time, single_sfc_data.latitude, single_sfc_data.longitude, leadtime_number_precip
+
+
+def aggregate(single_dir, aggregate_dir):
+    # aggregation for event 1
+    time1, lat, lon, precip1 = aggregate_event(single_dir, aggregate_dir, AGGREGATION_LIST[0])
+    # aggregation for event 2
+    time2, _, _, precip2 = aggregate_event(single_dir, aggregate_dir, AGGREGATION_LIST[1])
+
+    # concat time and precip
+    time = np.concatenate([time1, time2])
+    precip = np.concatenate([precip1, precip2], axis=2)
+
     # save
     wrf = ForecastEnsembleSurfaceData(
         lead_time=LEAD_TIMES,
         number=NUMBERS,
         time=time,
-        latitude=single_sfc_data.latitude,
-        longitude=single_sfc_data.longitude,
-        precip=leadtime_number_precip,
+        latitude=lat,
+        longitude=lon,
+        precip=precip,
     )
     wrf.save_to_h5(os.path.join(aggregate_dir, "wrf.h5"))
 
@@ -82,6 +103,7 @@ def main():
 
     # main calls
     aggregate(single_dir, aggregate_dir)
+    print("done!")
 
 
 if __name__ == "__main__":

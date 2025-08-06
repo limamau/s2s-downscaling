@@ -12,6 +12,7 @@ from engineering.regridding import interpolate_data
 HOURLY_RESOLUTION = 6
 EVENT_DAYS = 2
 S2S_DIVIDER = 6
+EVENT_LENGTH = 8
 
 
 ### auxiliary functions ###
@@ -55,20 +56,24 @@ def regrid_wrf(ds, new_lons, new_lats):
 
 
 ### main call ###
-def run_processing(wrf_output_dir, cpc_file):
+def run_processing(wrf_output_dir, cpc_file, event_date):
     # reference
     cpc = SurfaceData.load_from_h5(cpc_file, ["precip"])
     latitudes, longitudes = cpc.latitude, cpc.longitude
 
     # dataset to be processed
     num_event_idxs = EVENT_DAYS * 24 // HOURLY_RESOLUTION
-    # limamau: take out hard coding
-    INITIAL_IDX = 0
-    wrf_ds = concat_wrf(
-        wrf_output_dir, cpc.time[INITIAL_IDX : INITIAL_IDX + num_event_idxs]
-    )
+
+    # get initial index based on event date
+    if event_date == "2018-06-11":
+        initial_idx = 0
+    elif event_date == "2021-06-28":
+        initial_idx = EVENT_LENGTH
 
     # processing
+    wrf_ds = concat_wrf(
+        wrf_output_dir, cpc.time[initial_idx : initial_idx + num_event_idxs]
+    )
     times, wrf_data = regrid_wrf(wrf_ds, longitudes, latitudes)
     wrf_data[wrf_data < 0] = 0
     return SurfaceData(
@@ -96,10 +101,11 @@ def main():
     wrf_simulations_dir = os.path.join(simulations_dir, config.single_wrf_simulations)
     os.makedirs(wrf_simulations_dir, exist_ok=True)
     forecast_date = config.forecast_date
+    event_date = config.event_date
     member_idx = config.member_idx
 
     # main calls
-    wrf = run_processing(wrf_output_dir, cpc_file)
+    wrf = run_processing(wrf_output_dir, cpc_file, event_date)
     wrf.save_to_h5(
         os.path.join(wrf_simulations_dir, "{}_{}.h5".format(forecast_date, member_idx))
     )
