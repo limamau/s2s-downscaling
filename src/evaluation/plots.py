@@ -1,66 +1,65 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from scipy.stats import rankdata
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import numpy as np
 
-from utils import get_pdf, get_cdf
 from engineering.spectrum import get_1dpsd
+from utils import get_cdf, get_pdf
 
 # Define the contour levels and colors
 CUSTOM_PRECIP_COLORS = [
-    '#FFFFFF',  # White
-    '#FFFFCC',  # Light Yellow
-    '#C7E9B4',  # Light Green
-    '#7FCDBB',  # Moderate Blue-green
-    '#41B6C4',  # Moderate Blue
-    '#1D91C0',  # Blue
-    '#225EA8',  # Darker Blue
-    '#253494',  # Dark Blue
-    '#54278F',  # Purple
-    '#7A0177',  # Dark
-    '#C51B8A'   # Pink
+    "#FFFFFF",  # White
+    "#FFFFCC",  # Light Yellow
+    "#C7E9B4",  # Light Green
+    "#7FCDBB",  # Moderate Blue-green
+    "#41B6C4",  # Moderate Blue
+    "#1D91C0",  # Blue
+    "#225EA8",  # Darker Blue
+    "#253494",  # Dark Blue
+    "#54278F",  # Purple
+    "#7A0177",  # Dark
+    "#C51B8A",  # Pink
 ]
 PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
 CUSTOM_VALUES = [0, 0.1, 0.5, 1, 2, 2.5, 5, 10, 20, 30, 50]
 CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 11)
 CUSTOM_CURVE_COLORS = [
-    '#0072B2', # Blue
-    '#E69F00', # Orange
-    '#D55E00', # Vermilion
-    '#009E73', # Bluish Green
-    '#999999', # Gray
-    '#56B4E9', # Sky Blue
-    '#CC79A7', # Reddish Purple
-    '#F0E442', # Yellow
-    '#007D65', # Teal
-    '#FF00FF', # Magenta
+    "#0072B2",  # Blue
+    "#E69F00",  # Orange
+    "#D55E00",  # Vermilion
+    "#009E73",  # Bluish Green
+    "#999999",  # Gray
+    "#56B4E9",  # Sky Blue
+    "#CC79A7",  # Reddish Purple
+    "#F0E442",  # Yellow
+    "#007D65",  # Teal
+    "#FF00FF",  # Magenta
 ]
 CURVE_CMAP = mcolors.ListedColormap(CUSTOM_CURVE_COLORS)
 
 
 def _add_swiss_latlon_labels(ax, plons, plats):
     if plons is not None:
-        ax.set_xlabel('Longitude')
+        ax.set_xlabel("Longitude")
         ax.set_xticks(plons)
-        ax.set_xticklabels([str(c)+"º" for c in plons])
+        ax.set_xticklabels([str(c) + "º" for c in plons])
     if plats is not None:
-        ax.set_ylabel('Latitude')
+        ax.set_ylabel("Latitude")
         ax.set_yticks(plats)
-        ax.set_yticklabels([str(c)+"º" for c in plats])
+        ax.set_yticklabels([str(c) + "º" for c in plats])
 
 
 def _add_swiss_xy_labels(ax, xp, yp):
     if xp is not None:
-        ax.set_xlabel(r'Swiss-X ($10^5$m)')
+        ax.set_xlabel(r"Swiss-X ($10^5$m)")
         ax.set_xticks(xp)
-        ax.set_xticklabels([str(int(c/10**5)) for c in xp])
+        ax.set_xticklabels([str(int(c / 10**5)) for c in xp])
     if yp is not None:
-        ax.set_ylabel(r'Swiss-Y ($10^5$m)')
+        ax.set_ylabel(r"Swiss-Y ($10^5$m)")
         ax.set_yticks(yp)
-        ax.set_yticklabels([str(int(c/10**5)) for c in yp])
+        ax.set_yticklabels([str(int(c / 10**5)) for c in yp])
 
 
 def _write_label(ax, label):
@@ -101,22 +100,20 @@ def _plot_2maps(
     fig = plt.figure(figsize=figsize, dpi=500)
     axes = [None, None]
 
-    axis_labels = (
-        ("lon", "lat"),
-        ("lon", None)
-    )
+    axis_labels = (("lon", "lat"), ("lon", None))
 
     fig, axs = plt.subplots(
-        1, 2,
+        1,
+        2,
         figsize=figsize,
         dpi=300,
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
             arrays[i],
-            origin='lower',
+            origin="lower",
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
@@ -137,7 +134,7 @@ def _plot_2maps(
         wspace=0.1,
     )
 
-    cbar_ax = fig.add_axes([0.89, 0.1, 0.02, 1-2*0.1])
+    cbar_ax = fig.add_axes([0.89, 0.1, 0.02, 1 - 2 * 0.1])
     fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
     return fig, axes
@@ -165,16 +162,17 @@ def _plot_3maps(
     )
 
     fig, axs = plt.subplots(
-        1, 3,
+        1,
+        3,
         figsize=figsize,
         dpi=300,
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
             arrays[i],
-            origin='lower',
+            origin="lower",
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
@@ -195,7 +193,7 @@ def _plot_3maps(
         wspace=0.1,
     )
 
-    cbar_ax = fig.add_axes([0.89, 0.1, 0.02, 1-2*0.1])
+    cbar_ax = fig.add_axes([0.89, 0.1, 0.02, 1 - 2 * 0.1])
     fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
     return fig, axes
@@ -214,23 +212,19 @@ def _plot_4maps(
     figsize=(8, 4),
 ):
     fig, axs = plt.subplots(
-        2, 2,
+        2,
+        2,
         figsize=figsize,
         dpi=300,
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
-    axis_labels = (
-        (None, "lat"),
-        (None, None),
-        ("lon", "lat"),
-        ("lon", None)
-    )
+    axis_labels = ((None, "lat"), (None, None), ("lon", "lat"), ("lon", None))
 
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
             arrays[i],
-            origin='lower',
+            origin="lower",
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
@@ -253,7 +247,7 @@ def _plot_4maps(
     )
 
     # Create a single axis for the colorbar
-    cbar_ax = fig.add_axes([0.89, 0.5-0.5/2, 0.02, 1/2])
+    cbar_ax = fig.add_axes([0.89, 0.5 - 0.5 / 2, 0.02, 1 / 2])
     fig.colorbar(img, cax=cbar_ax, label=cbar_label)
 
     return fig, axs
@@ -269,28 +263,29 @@ def _plot_6maps(
     vmin,
     vmax,
     cbar_label,
-    figsize=(11, 4),
+    figsize=(8, 8),
 ):
     fig, axs = plt.subplots(
-        2, 3,
+        3,
+        2,
         figsize=figsize,
         dpi=300,
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
     axis_labels = (
         (None, "lat"),
         (None, None),
+        (None, "lat"),
         (None, None),
         ("lon", "lat"),
-        ("lon", None),
         ("lon", None),
     )
 
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
             arrays[i],
-            origin='lower',
+            origin="lower",
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
@@ -305,16 +300,21 @@ def _plot_6maps(
 
     fig.subplots_adjust(
         left=0.1,
-        right=0.85,
-        bottom=0.03,
+        right=0.97,
+        bottom=0.1,
         top=1.03,
         wspace=0.1,
         hspace=-0.2,
     )
 
-    # Create a single axis for the colorbar
-    cbar_ax = fig.add_axes([0.89, 0.5-0.5/2, 0.02, 1/2])
-    fig.colorbar(img, cax=cbar_ax, label=cbar_label)
+    # create a single axis for the colorbar in the horizontal
+    cax = fig.add_axes([0.3, 0.07, 0.4, 0.025])
+    fig.colorbar(
+        img,
+        cax=cax,
+        label=cbar_label,
+        orientation="horizontal",
+    )
 
     return fig, axs
 
@@ -331,10 +331,11 @@ def _plot_9maps(
     figsize=(11, 11),
 ):
     fig, axs = plt.subplots(
-        3, 3,
+        3,
+        3,
         figsize=figsize,
         dpi=300,
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
 
     axis_labels = (
@@ -352,7 +353,7 @@ def _plot_9maps(
     for i, ax in enumerate(axs.flat):
         img = ax.imshow(
             arrays[i],
-            origin='lower',
+            origin="lower",
             extent=extents[i],
             transform=projections[i],
             cmap=cmap,
@@ -374,8 +375,8 @@ def _plot_9maps(
     )
 
     # Create a single axis for the colorbar
-    cbar_ax = fig.add_axes([0.89, 0.5-0.5/3, 0.02, 1/3])
-    fig.colorbar(img, cax=cbar_ax, label=cbar_label)
+    cbar_ax = fig.add_axes([0.89, 0.5 - 0.5 / 3, 0.02, 1 / 3])
+    fig.colorbar(img, ax=axs, cax=cbar_ax, label=cbar_label)
 
     return fig, axs
 
@@ -389,7 +390,7 @@ def plot_maps(
     norm=CUSTOM_NORM,
     vmin=None,
     vmax=None,
-    cbar_label='Precipitation (mm/h)',
+    cbar_label="Precipitation (mm/h)",
 ):
     """
     General function to plot any even number of maps.
@@ -508,7 +509,9 @@ def plot_cdfs(
     # Colors
     if colors is not None:
         if len(colors) != len(arrays):
-            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+            raise ValueError(
+                "The number of colors must match the number of data arrays if colors are provided."
+            )
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
@@ -516,9 +519,11 @@ def plot_cdfs(
     # Linestyle
     if ls is not None:
         if len(ls) != len(arrays):
-            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+            raise ValueError(
+                "The number of linestyles must match the number of data arrays if linestyles are provided."
+            )
     else:
-        ls = ('-',) * len(arrays)
+        ls = ("-",) * len(arrays)
 
     cmap = plt.get_cmap(cmap)
     global_max = max(np.nanmax(arr) for arr in arrays)
@@ -534,22 +539,22 @@ def plot_cdfs(
         ax.plot(bins, cdf, label=label, color=colors[i], ls=ls[i])
 
     ax.set_frame_on(False)
-    ax.grid(True, which='both', ls='--', alpha=0.5)
-    ax.set_xlabel('Precipitation (mm/h)')
-    ax.set_ylabel('Cumulative distribution function')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    ax.grid(True, which="both", ls="--", alpha=0.5)
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Cumulative distribution function")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-    ax.get_xaxis().set_tick_params(which='both', color='white')
-    ax.get_yaxis().set_tick_params(which='both', color='white')
-    ax.legend(fontsize='large')
+    ax.get_xaxis().set_tick_params(which="both", color="white")
+    ax.get_yaxis().set_tick_params(which="both", color="white")
+    ax.legend(fontsize="large")
     plt.xlim(0, xlim_max)
     plt.tight_layout()
 
     return fig, ax
 
 
-def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
+def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP, ls=None):
     """
     Plot the probability density functions (PDFs) of multiple arrays.
 
@@ -571,7 +576,9 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     # Colors
     if colors is not None:
         if len(colors) != len(arrays):
-            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+            raise ValueError(
+                "The number of colors must match the number of data arrays if colors are provided."
+            )
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
@@ -579,9 +586,11 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
     # Linestyle
     if ls is not None:
         if len(ls) != len(arrays):
-            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+            raise ValueError(
+                "The number of linestyles must match the number of data arrays if linestyles are provided."
+            )
     else:
-        ls = ('-',) * len(arrays)
+        ls = ("-",) * len(arrays)
 
     global_max = max(np.nanmax(arr) for arr in arrays)
     global_min = min(np.nanmin(arr) for arr in arrays)
@@ -597,8 +606,8 @@ def plot_pdfs(arrays, labels, n_quantiles=100, colors=None, cmap=CURVE_CMAP):
 
         ax.plot(bin_centers, pdf, label=label, color=colors[i], ls=ls[i])
 
-    ax.set_xlabel('Precipitation (mm/h)')
-    ax.set_ylabel('PDF')
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("PDF")
     ax.legend()
     plt.xlim(global_min, 60)
 
@@ -636,7 +645,9 @@ def plot_pp(
     # Colors
     if colors is not None:
         if len(colors) != len(arrays):
-            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+            raise ValueError(
+                "The number of colors must match the number of data arrays if colors are provided."
+            )
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
@@ -644,9 +655,11 @@ def plot_pp(
     # Linestyle
     if ls is not None:
         if len(ls) != len(arrays):
-            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+            raise ValueError(
+                "The number of linestyles must match the number of data arrays if linestyles are provided."
+            )
     else:
-        ls = ('-',) * len(arrays)
+        ls = ("-",) * len(arrays)
 
     global_max = max(np.nanmax(arr) for arr in arrays)
     global_min = max(min(np.nanmin(arr) for arr in arrays), 0)  # Ensure non-negative
@@ -663,17 +676,19 @@ def plot_pp(
         # Calculate precipitation intensity distribution
         precip_intensity_dist = pdf * bin_centers
 
-        ax.plot(bin_centers, precip_intensity_dist, label=label, color=colors[i], ls=ls[i])
+        ax.plot(
+            bin_centers, precip_intensity_dist, label=label, color=colors[i], ls=ls[i]
+        )
 
     plt.xlim(0, xlim_max)
-    ax.set_xlabel('Precipitation (mm/h)')
-    ax.set_ylabel('Precipitation Intensity Distribution (mm/h)')
+    ax.set_xlabel("Precipitation (mm/h)")
+    ax.set_ylabel("Precipitation Intensity Distribution (mm/h)")
     ax.legend()
     ax.set_frame_on(False)
-    ax.grid(True, which='major', ls='--', alpha=0.5)
+    ax.grid(True, which="major", ls="--", alpha=0.5)
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-    ax.get_xaxis().set_tick_params(which='both', color='white')
-    ax.get_yaxis().set_tick_params(which='both', color='white')
+    ax.get_xaxis().set_tick_params(which="both", color="white")
+    ax.get_yaxis().set_tick_params(which="both", color="white")
 
     return fig, ax
 
@@ -713,12 +728,16 @@ def plot_psds(
     - ax (matplotlib axis object)
     """
     if len(arrays) != len(labels) or len(arrays) != len(spatial_lengths):
-        raise ValueError("The number of data arrays, labels, and spatial lengths must be the same.")
+        raise ValueError(
+            "The number of data arrays, labels, and spatial lengths must be the same."
+        )
 
     # Colors
     if colors is not None:
         if len(colors) != len(arrays):
-            raise ValueError("The number of colors must match the number of data arrays if colors are provided.")
+            raise ValueError(
+                "The number of colors must match the number of data arrays if colors are provided."
+            )
     else:
         cmap = plt.get_cmap(cmap)
         colors = [cmap(i) for i in range(len(arrays))]
@@ -726,46 +745,52 @@ def plot_psds(
     # Linestyle
     if ls is not None:
         if len(ls) != len(arrays):
-            raise ValueError("The number of linestyles must match the number of data arrays if linestyles are provided.")
+            raise ValueError(
+                "The number of linestyles must match the number of data arrays if linestyles are provided."
+            )
     else:
-        ls = ('-',) * len(arrays)
+        ls = ("-",) * len(arrays)
 
     fig, ax = plt.subplots(figsize=(6, 4))
 
-    for i, (data, label, (x_length, y_length)) in enumerate(zip(arrays, labels, spatial_lengths)):
-        k, psd = get_1dpsd(data, x_length, y_length, data_std=data_std, rotation_angle=rotation_angle)
-        wavelengths = 2*np.pi / k
+    for i, (data, label, (x_length, y_length)) in enumerate(
+        zip(arrays, labels, spatial_lengths)
+    ):
+        k, psd = get_1dpsd(
+            data, x_length, y_length, data_std=data_std, rotation_angle=rotation_angle
+        )
+        wavelengths = 2 * np.pi / k
 
         if min_threshold is not None:
-            mask = (psd >= min_threshold)
+            mask = psd >= min_threshold
         else:
             mask = np.ones_like(psd, dtype=bool)
 
         if max_threshold is not None:
-            mask &= (psd <= max_threshold)
+            mask &= psd <= max_threshold
 
         plt.loglog(wavelengths[mask], psd[mask], label=label, color=colors[i], ls=ls[i])
 
-    ax.legend(fontsize='medium')
+    ax.legend(fontsize="medium")
 
     if lambda_star is not None:
-        ax.axvline(lambda_star, color='black', linestyle='--', label=r'$\lambda^*$')
-        ax.text(lambda_star*1.1, 1e-5, r'$\lambda^\star$', fontsize='large')
+        ax.axvline(lambda_star, color="black", linestyle="--", label=r"$\lambda^*$")
+        ax.text(lambda_star * 1.1, 1e-5, r"$\lambda^\star$", fontsize="large")
 
     if psd_star is not None:
-        ax.axhline(psd_star, color='black', linestyle='--', label=r'$\sigma^*$')
-        ax.text(1e1, psd_star*1.1, r'$\sigma^\star$', fontsize='large')
+        ax.axhline(psd_star, color="black", linestyle="--", label=r"$\sigma^*$")
+        ax.text(1e1, psd_star * 1.1, r"$\sigma^\star$", fontsize="large")
 
-    plt.ylim(1e-10,None)
+    plt.ylim(1e-10, None)
 
     ax.set_frame_on(False)
-    ax.grid(True, which='major', ls='--', alpha=0.5)
+    ax.grid(True, which="major", ls="--", alpha=0.5)
     ax.set_xlabel("Wavelength (km)")
     ax.set_ylabel("Power spectral density")
-    ax.set_xscale('log')
+    ax.set_xscale("log")
     ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-    ax.get_xaxis().set_tick_params(which='both', color='white')
-    ax.get_yaxis().set_tick_params(which='both', color='white')
+    ax.get_xaxis().set_tick_params(which="both", color="white")
+    ax.get_yaxis().set_tick_params(which="both", color="white")
     plt.tight_layout()
 
     return fig, ax

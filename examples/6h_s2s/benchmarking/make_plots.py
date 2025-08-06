@@ -141,7 +141,7 @@ def plot_right_tale_ens(
 
     ax.legend()
     plt.title(f"lead time = {lead_time_name}")
-    fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_right.png"))
+    fig.savefig(os.path.join(figs_dir, f"cdfs/dist_{lead_time_name}_right.png"))
 
 
 def plot_left_tale_ens(
@@ -232,7 +232,7 @@ def plot_left_tale_ens(
 
     ax.legend()
     plt.title(f"lead time = {lead_time_name}")
-    fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_left.png"))
+    fig.savefig(os.path.join(figs_dir, f"cdfs/dist_{lead_time_name}_left.png"))
 
 
 def plot_lead_time_distribution(
@@ -317,17 +317,17 @@ def plot_lead_time_map(
         arrays = (
             det_s2s.precip[lead_time_idx, time_idx],
             ens_s2s.precip[lead_time_idx, num_idx, time_idx],
-            wrf.precip[lead_time_idx, num_idx, time_idx],
             det_diff.precip[lead_time_idx, num_idx, time_idx],
             ens_diff.precip[lead_time_idx, num_idx, time_idx],
+            wrf.precip[lead_time_idx, num_idx, time_idx],
             cpc.precip[time_idx],
         )
         titles = (
             "a) S2S det.",
             "b) S2S ens.",
-            "c) WRF",
-            "d) Diff. det.",
-            "e) Diff. ens.",
+            "c) Diff. det.",
+            "d) Diff. ens.",
+            "e) WRF",
             "f) CombiPrecip",
         )
         cpc_extent = cpc.get_extent()
@@ -343,7 +343,9 @@ def plot_lead_time_map(
 
     # create the GIFs
     for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
-        gif_path = os.path.join(figs_dir, f"maps_{lead_time_name}_e{event_idx}.gif")
+        gif_path = os.path.join(
+            figs_dir, f"maps/maps_{lead_time_name}_e{event_idx}.gif"
+        )
         with imageio.get_writer(gif_path, mode="I", duration=1000) as writer:
             for image_path_idx in range(
                 (event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH
@@ -478,7 +480,9 @@ def plot_lead_time_timeseries(
 
         lead_time_name = det_s2s.lead_time[lead_time_idx]
         plt.title(f"lead time = {lead_time_name}, event = {event_idx}")
-        fig.savefig(os.path.join(figs_dir, f"ts_{lead_time_name}_e{event_idx}.png"))
+        fig.savefig(
+            os.path.join(figs_dir, f"timeseries/ts_{lead_time_name}_e{event_idx}.png")
+        )
 
 
 def plot_lead_time_psd(
@@ -568,7 +572,7 @@ def plot_lead_time_psd(
 
     lead_time_name = det_s2s.lead_time[lead_time_idx]
     plt.title(f"lead time = {lead_time_name}")
-    fig.savefig(os.path.join(figs_dir, f"psd_{lead_time_name}.png"))
+    fig.savefig(os.path.join(figs_dir, f"psds/psd_{lead_time_name}.png"))
 
 
 def plot_rank_histogram(
@@ -614,7 +618,7 @@ def plot_rank_histogram(
 
     # save
     lead_time_name = ens_s2s.lead_time[lead_time_idx]
-    fig.savefig(os.path.join(figs_dir, f"rank_histograms_{lead_time_name}.png"))
+    fig.savefig(os.path.join(figs_dir, f"ranks/rank_histograms_{lead_time_name}.png"))
 
 
 def make_plots(
@@ -636,7 +640,11 @@ def make_plots(
     # define figs directory
     script_dir = os.path.dirname(os.path.realpath(__file__))
     figs_dir = os.path.join(script_dir, "figs/analysis")
-    os.makedirs(figs_dir, exist_ok=True)
+    os.makedirs(figs_dir + "/maps", exist_ok=True)
+    os.makedirs(figs_dir + "/timeseries", exist_ok=True)
+    os.makedirs(figs_dir + "/cdfs", exist_ok=True)
+    os.makedirs(figs_dir + "/psds", exist_ok=True)
+    os.makedirs(figs_dir + "/ranks", exist_ok=True)
 
     # plot gifs for each lead time (and each event)
     for lead_time_idx in range(3):
@@ -653,60 +661,60 @@ def make_plots(
         )
     print("maps saved")
 
-    # plot timeseries for each lead time (and each event)
-    for lead_time_idx in range(3):
-        plot_lead_time_timeseries(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("timeseries saved")
+    # # plot timeseries for each lead time (and each event)
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_timeseries(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("timeseries saved")
 
-    # plot distribution for each lead time
-    for lead_time_idx in range(3):
-        plot_lead_time_distribution(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("distributions saved")
+    # # plot distribution for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_distribution(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("distributions saved")
 
-    # plot psds for each lead time
-    for lead_time_idx in range(3):
-        plot_lead_time_psd(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("psds saved")
+    # # plot psds for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_psd(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("psds saved")
 
-    # plot rank histogram for each lead time
-    for lead_time_idx in range(3):
-        plot_rank_histogram(
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("rank histograms saved")
+    # # plot rank histogram for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_rank_histogram(
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("rank histograms saved")
 
 
 def main():
