@@ -17,19 +17,19 @@ AGGREGATION_LIST = [
         "2021-06-21": [0, 11],
         "2021-06-14": [5, 26],
         "2021-06-07": [0, 17],
-    }
+    },
 ]
 LINES_UNTIL_EVENT_CHANGE = 3
 LEAD_TIMES = ["1-week", "2-week", "3-week"]
 NUMBERS = np.array([0, 1])
 
 
-def aggregate_event(single_dir, aggregate_dir, aggregation_dict):
+def aggregate_event(single_dir, aggregation_dict):
     first_number_flag = True
     first_lead_time_flag = True
 
     # lead-time aggregation loop
-    for (date, ens_idxs) in aggregation_dict.items():
+    for date, ens_idxs in aggregation_dict.items():
         # ensemble number aggregation loop
         for ens_idx in ens_idxs:
             single_sfc_data = SurfaceData.load_from_h5(
@@ -58,14 +58,23 @@ def aggregate_event(single_dir, aggregate_dir, aggregation_dict):
         first_number_flag = True
 
     # time, lat, lon, precip
-    return time, single_sfc_data.latitude, single_sfc_data.longitude, leadtime_number_precip
+    return (
+        time,
+        single_sfc_data.latitude,
+        single_sfc_data.longitude,
+        leadtime_number_precip,
+    )
 
 
 def aggregate(single_dir, aggregate_dir):
     # aggregation for event 1
-    time1, lat, lon, precip1 = aggregate_event(single_dir, aggregate_dir, AGGREGATION_LIST[0])
+    time1, lat, lon, precip1 = aggregate_event(
+        single_dir, aggregate_dir, AGGREGATION_LIST[0]
+    )
     # aggregation for event 2
-    time2, _, _, precip2 = aggregate_event(single_dir, aggregate_dir, AGGREGATION_LIST[1])
+    time2, _, _, precip2 = aggregate_event(
+        single_dir, aggregate_dir, AGGREGATION_LIST[1]
+    )
 
     # concat time and precip
     time = np.concatenate([time1, time2])
@@ -99,10 +108,9 @@ def main():
     # s2s_file = os.path.join(test_data_dir, config.s2s_file)
     # s2s = SurfaceData.load_from_h5(s2s_file, ["precip"])
     single_dir = os.path.join(simulations_dir, "wrf/single")
-    aggregate_dir = os.path.join(simulations_dir, "wrf")
 
     # main calls
-    aggregate(single_dir, aggregate_dir)
+    aggregate(single_dir)
     print("done!")
 
 
