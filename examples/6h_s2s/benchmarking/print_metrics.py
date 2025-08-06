@@ -9,40 +9,32 @@ from data.surface_data import (
 )
 from evaluation.metrics import crps, psd_distance, wasserstein_distance
 
-EVENT_LENGTH = 8
-
 
 def print_metric(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc, name, metric, *args):
     print(f"Metric: {name}")
     for i, lead_time in enumerate(s2s_det.lead_time):
         print(f"Lead time: {lead_time}", flush=True)
         print(
-            f"  S2S-det: {metric(cpc.precip[0:EVENT_LENGTH], s2s_det.precip[i, 0:EVENT_LENGTH], *args)}",
+            f"  S2S-det: {metric(cpc.precip, s2s_det.precip[i], *args)}",
             flush=True,
         )
         print(
-            f"  S2S-ens: {metric(cpc.precip[0:EVENT_LENGTH], s2s_ens.precip[i, :, 0:EVENT_LENGTH], *args)}",
+            f"  S2S-ens: {metric(cpc.precip, s2s_ens.precip[i], *args)}",
             flush=True,
         )
         print(
-            f"  diff-det: {metric(cpc.precip[0:EVENT_LENGTH], diff_det.precip[i, :, 0:EVENT_LENGTH], *args)}",
+            f"  diff-det: {metric(cpc.precip, diff_det.precip[i], *args)}",
             flush=True,
         )
         print(
-            f"  diff-ens: {metric(cpc.precip[0:EVENT_LENGTH], diff_ens.precip[i, :, 0:EVENT_LENGTH], *args)}",
+            f"  diff-ens: {metric(cpc.precip, diff_ens.precip[i], *args)}",
             flush=True,
         )
         print(
-            f"  WRF: {metric(cpc.precip[0:EVENT_LENGTH], wrf.precip[i, :, 0:EVENT_LENGTH], *args)}",
+            f"  WRF: {metric(cpc.precip, wrf.precip[i], *args)}",
             flush=True,
         )
     print()
-
-
-# limamau: change that to the metrics that Tom showed
-def plot_rank_histogram(s2s_ens, diff_det, diff_ens, wrf, cpc):
-    for i, lead_time in enumerate(s2s_ens.lead_time):
-        pass
 
 
 def evaluate(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
@@ -83,11 +75,6 @@ def evaluate(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
         psd_distance,
         *spatial_lengths,
     )
-
-    # # rank histogram
-    # plot_rank_histogram(
-    #     s2s_ens, diff_det, diff_ens, wrf, cpc,
-    # )
 
 
 def main():

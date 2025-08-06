@@ -1,9 +1,11 @@
 import os
 
 import imageio
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import tomllib
+from matplotlib.ticker import MaxNLocator
 
 from data.surface_data import (
     ForecastEnsembleSurfaceData,
@@ -16,35 +18,37 @@ from evaluation.plots import plot_maps
 from utils import get_cdf
 
 EVENT_LENGTH = 8
+NUMBER_OF_EVENTS = 2
+MODEL_COLOR_DICT = {
+    "S2S det.": cmap(1),
+    "S2S ens.": cmap(2),
+    "Diff. det.": cmap(5),
+    "Diff. ens.": cmap(6),
+    "WRF": cmap(3),
+    "CombiPrecip": cmap(0),
+}
+TIME_IDXS = [i for i in range(EVENT_LENGTH * NUMBER_OF_EVENTS)]
 
 
 ### auxiliary functions ###
-def plot_left_tale_det(
-    bins_range,
-    det_s2s_cdf,
-    ens_s2s_cdf,
-    det_diff_cdf,
-    ens_diff_cdf,
-    cpc_cdf,
-    lead_time_name,
-    figs_dir,
-):
-    fig, ax = plt.subplots(figsize=(8, 4))
+def rank_histogram(ens, obs):
+    n_ens = ens.shape[0]
 
-    ax.plot(bins_range, det_s2s_cdf, label="S2S det.", color=cmap(1), linewidth=2)
-    ax.plot(bins_range, ens_s2s_cdf, label="S2S ens.", color=cmap(2), linewidth=2)
-    ax.plot(bins_range, det_diff_cdf, label="det-diff", color=cmap(5), linewidth=2)
-    ax.plot(bins_range, ens_diff_cdf, label="ens-diff", color=cmap(6), linewidth=2)
-    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    # flatten space and time so we treat each point independently
+    ens_flat = ens.reshape(n_ens, -1)  # (n_ens, n_samples)
+    obs_flat = obs.reshape(-1)  # (n_samples,)
 
-    ax.set_xlim(0, 5)
-    ax.set_ylim(0, 1.0)
-    ax.set_xlabel("Precipitation (mm/h)")
-    ax.set_ylabel("Cumulative distribution function")
+    # sort ensemble values along ensemble axis
+    sorted_ens = jnp.sort(ens_flat, axis=0)
 
-    ax.legend()
-    plt.title(f"lead time = {lead_time_name}")
-    fig.savefig(os.path.join(figs_dir, f"dist_{lead_time_name}_left.png"))
+    # compare observation to sorted ensemble members
+    # this yields a boolean array: obs > sorted member?
+    comparisons = obs_flat[None, :] > sorted_ens  # shape (n_ens, n_samples)
+
+    # sum over ensemble axis → gives rank (0..n_ens)
+    ranks = jnp.sum(comparisons, axis=0)
+
+    return ranks
 
 
 def plot_right_tale_ens(
@@ -87,12 +91,19 @@ def plot_right_tale_ens(
     ax.set_xlabel("Precipitation (mm/h)")
     ax.set_ylabel("Cumulative distribution function")
 
-    ax.plot(bins_range, det_s2s_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    # plots
+    ax.plot(
+        bins_range,
+        det_s2s_cdf,
+        label="S2S det.",
+        color=MODEL_COLOR_DICT["S2S det."],
+        linewidth=2,
+    )
     ax.fill_between(
         bins_range,
         ens_s2s_lower_bound,
         ens_s2s_upper_bound,
-        color=cmap(2),
+        color=MODEL_COLOR_DICT["S2S ens."],
         alpha=0.3,
         label="S2S ens.",
     )
@@ -100,27 +111,33 @@ def plot_right_tale_ens(
         bins_range,
         det_diff_lower_bound,
         det_diff_upper_bound,
-        color=cmap(5),
+        color=MODEL_COLOR_DICT["Diff. det."],
         alpha=0.3,
-        label="det-diff",
+        label="Diff. det.",
     )
     ax.fill_between(
         bins_range,
         ens_diff_lower_bound,
         ens_diff_upper_bound,
-        color=cmap(6),
+        color=MODEL_COLOR_DICT["Diff. ens."],
         alpha=0.3,
-        label="ens-diff",
+        label="Diff. ens.",
     )
     ax.fill_between(
         bins_range,
         wrf_lower_bound,
         wrf_upper_bound,
-        color=cmap(3),
+        color=MODEL_COLOR_DICT["WRF"],
         alpha=0.3,
         label="WRF",
     )
-    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.plot(
+        bins_range,
+        cpc_cdf,
+        label="CombiPrecip",
+        color=MODEL_COLOR_DICT["CombiPrecip"],
+        linewidth=2,
+    )
 
     ax.legend()
     plt.title(f"lead time = {lead_time_name}")
@@ -160,12 +177,19 @@ def plot_left_tale_ens(
     wrf_lower_bound = np.maximum(wrf_mean - wrf_std, 0)
     wrf_upper_bound = np.maximum(wrf_mean + wrf_std, 0)
 
-    ax.plot(bins_range, det_s2s_cdf, label="S2S det.", color=cmap(1), linewidth=2)
+    # plots
+    ax.plot(
+        bins_range,
+        det_s2s_cdf,
+        label="S2S det.",
+        color=MODEL_COLOR_DICT["S2S det."],
+        linewidth=2,
+    )
     ax.fill_between(
         bins_range,
         ens_s2s_lower_bound,
         ens_s2s_upper_bound,
-        color=cmap(2),
+        color=MODEL_COLOR_DICT["S2S ens."],
         alpha=0.3,
         label="S2S ens.",
     )
@@ -173,27 +197,33 @@ def plot_left_tale_ens(
         bins_range,
         det_diff_lower_bound,
         det_diff_upper_bound,
-        color=cmap(5),
+        color=MODEL_COLOR_DICT["Diff. det."],
         alpha=0.3,
-        label="det. diff.",
+        label="Diff. det.",
     )
     ax.fill_between(
         bins_range,
         ens_diff_lower_bound,
         ens_diff_upper_bound,
-        color=cmap(6),
+        color=MODEL_COLOR_DICT["Diff. ens."],
         alpha=0.3,
-        label="ens. diff.",
+        label="Diff. ens.",
     )
     ax.fill_between(
         bins_range,
         wrf_lower_bound,
         wrf_upper_bound,
-        color=cmap(3),
+        color=MODEL_COLOR_DICT["WRF"],
         alpha=0.3,
         label="WRF",
     )
-    ax.plot(bins_range, cpc_cdf, label="CombiPrecip", color=cmap(0), linewidth=2)
+    ax.plot(
+        bins_range,
+        cpc_cdf,
+        label="CombiPrecip",
+        color=MODEL_COLOR_DICT["CombiPrecip"],
+        linewidth=2,
+    )
 
     ax.set_xlim(0, 5)
     ax.set_ylim(0, 1.0)
@@ -212,18 +242,17 @@ def plot_lead_time_distribution(
     ens_diff,
     wrf,
     cpc,
-    time_idxs,
     lead_time_idx,
     figs_dir,
     bins=100,
 ):
     # get data
-    det_s2s_data = det_s2s.precip[lead_time_idx, time_idxs]
-    ens_s2s_data = ens_s2s.precip[lead_time_idx, :, time_idxs]
-    det_diff_data = det_diff.precip[lead_time_idx, :, time_idxs]
-    ens_diff_data = ens_diff.precip[lead_time_idx, :, time_idxs]
-    wrf_data = wrf.precip[lead_time_idx, :, time_idxs]
-    cpc_data = cpc.precip[time_idxs].flatten()
+    det_s2s_data = det_s2s.precip[lead_time_idx]
+    ens_s2s_data = ens_s2s.precip[lead_time_idx]
+    det_diff_data = det_diff.precip[lead_time_idx, :, :]
+    ens_diff_data = ens_diff.precip[lead_time_idx, :, :]
+    wrf_data = wrf.precip[lead_time_idx, :, :]
+    cpc_data = cpc.precip.flatten()
 
     bins_range = np.linspace(0, 5, bins)
 
@@ -277,7 +306,6 @@ def plot_lead_time_map(
     cpc,
     lead_time_idx,
     num_idx,
-    time_idxs,
     figs_dir,
 ):
     lead_time_name = det_s2s.lead_time[lead_time_idx]
@@ -285,22 +313,22 @@ def plot_lead_time_map(
     image_paths = []
 
     # save temporary images for each time_idx
-    for time_idx in time_idxs:
+    for time_idx in TIME_IDXS:
         arrays = (
             det_s2s.precip[lead_time_idx, time_idx],
             ens_s2s.precip[lead_time_idx, num_idx, time_idx],
+            wrf.precip[lead_time_idx, num_idx, time_idx],
             det_diff.precip[lead_time_idx, num_idx, time_idx],
             ens_diff.precip[lead_time_idx, num_idx, time_idx],
-            wrf.precip[lead_time_idx, num_idx, time_idx],
             cpc.precip[time_idx],
         )
         titles = (
-            "S2S ens.",
-            "ens. s2s.",
-            "det .diff.",
-            "ens. diff.",
-            "WRF",
-            "CombiPrecip",
+            "a) S2S det.",
+            "b) S2S ens.",
+            "c) WRF",
+            "d) Diff. det.",
+            "e) Diff. ens.",
+            "f) CombiPrecip",
         )
         cpc_extent = cpc.get_extent()
         extents = (cpc_extent,) * 6
@@ -314,7 +342,7 @@ def plot_lead_time_map(
         image_paths.append(image_path)
 
     # create the GIFs
-    for event_idx in range(1, len(time_idxs) // EVENT_LENGTH + 1):
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
         gif_path = os.path.join(figs_dir, f"maps_{lead_time_name}_e{event_idx}.gif")
         with imageio.get_writer(gif_path, mode="I", duration=1000) as writer:
             for image_path_idx in range(
@@ -336,50 +364,49 @@ def plot_lead_time_timeseries(
     ens_diff,
     wrf,
     cpc,
-    time_idxs,
     lead_time_idx,
     figs_dir,
 ):
     # get timeseries
     det_s2s_timeseries = np.mean(
-        det_s2s.precip[lead_time_idx, time_idxs],
-        axis=(-2, -1),
+        det_s2s.precip[lead_time_idx],
+        axis=(1, 2),
     )
     ens_s2s_timeseries = np.mean(
-        ens_s2s.precip[lead_time_idx, :, time_idxs],
-        axis=(-2, -1),
+        ens_s2s.precip[lead_time_idx],
+        axis=(2, 3),
     )
     det_diff_timeseries = np.mean(
-        det_diff.precip[lead_time_idx, :, time_idxs],
-        axis=(-2, -1),
+        det_diff.precip[lead_time_idx],
+        axis=(2, 3),
     )
     ens_diff_timeseries = np.mean(
-        ens_diff.precip[lead_time_idx, :, time_idxs],
-        axis=(-2, -1),
+        ens_diff.precip[lead_time_idx],
+        axis=(2, 3),
     )
     wrf_timeseries = np.mean(
-        wrf.precip[lead_time_idx, :, time_idxs],
-        axis=(-2, -1),
+        wrf.precip[lead_time_idx],
+        axis=(2, 3),
     )
     cpc_timeseries = np.mean(
-        cpc.precip[time_idxs],
-        axis=(-2, -1),
+        cpc.precip,
+        axis=(1, 2),
     )
-    dates = cpc.time[time_idxs]
+    dates = cpc.time
 
     # compute ensemble mean and spread
-    ens_s2s = np.mean(ens_s2s_timeseries, axis=1)
-    det_diff_mean = np.mean(det_diff_timeseries, axis=1)
-    ens_diff_mean = np.mean(ens_diff_timeseries, axis=1)
-    wrf_diff_mean = np.mean(wrf_timeseries, axis=1)
+    ens_s2s_mean = np.mean(ens_s2s_timeseries, axis=0)
+    det_diff_mean = np.mean(det_diff_timeseries, axis=0)
+    ens_diff_mean = np.mean(ens_diff_timeseries, axis=0)
+    wrf_diff_mean = np.mean(wrf_timeseries, axis=0)
     # use std for spread
-    ens_s2s_std = np.std(ens_s2s_timeseries, axis=1)
-    det_diff_std = np.std(det_diff_timeseries, axis=1)
-    ens_diff_std = np.std(ens_diff_timeseries, axis=1)
-    wrf_diff_std = np.std(wrf_timeseries, axis=1)
+    ens_s2s_std = np.std(ens_s2s_timeseries, axis=0)
+    det_diff_std = np.std(det_diff_timeseries, axis=0)
+    ens_diff_std = np.std(ens_diff_timeseries, axis=0)
+    wrf_diff_std = np.std(wrf_timeseries, axis=0)
     # get bounds
-    ens_s2s_lower_bound = np.maximum(ens_s2s - ens_s2s_std, 0)
-    ens_s2s_upper_bound = np.maximum(ens_s2s + ens_s2s_std, 0)
+    ens_s2s_lower_bound = np.maximum(ens_s2s_mean - ens_s2s_std, 0)
+    ens_s2s_upper_bound = np.maximum(ens_s2s_mean + ens_s2s_std, 0)
     det_diff_lower_bound = np.maximum(det_diff_mean - det_diff_std, 0)
     det_diff_upper_bound = np.maximum(det_diff_mean + det_diff_std, 0)
     ens_diff_lower_bound = np.maximum(ens_diff_mean - ens_diff_std, 0)
@@ -388,21 +415,26 @@ def plot_lead_time_timeseries(
     wrf_diff_upper_bound = np.maximum(wrf_diff_mean + wrf_diff_std, 0)
 
     # plot timeseries for each event
-    for event_idx in range(1, len(time_idxs) // EVENT_LENGTH + 1):
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
         idxs = slice(EVENT_LENGTH * (event_idx - 1), EVENT_LENGTH * event_idx)
 
         # create figure and axis
         fig, ax = plt.subplots(figsize=(8, 4))
 
         # beginning
-        ax.plot(dates[idxs], det_s2s_timeseries[idxs], label="S2S det.", color=cmap(1))
+        ax.plot(
+            dates[idxs],
+            det_s2s_timeseries[idxs],
+            label="S2S det.",
+            color=MODEL_COLOR_DICT["S2S det."],
+        )
 
         # add shaded region for ensemble spread
         ax.fill_between(
             dates[idxs],
             ens_s2s_lower_bound[idxs],
             ens_s2s_upper_bound[idxs],
-            color=cmap(2),
+            color=MODEL_COLOR_DICT["S2S ens."],
             alpha=0.3,
             label="S2S ens.",
         )
@@ -410,29 +442,34 @@ def plot_lead_time_timeseries(
             dates[idxs],
             det_diff_lower_bound[idxs],
             det_diff_upper_bound[idxs],
-            color=cmap(5),
+            color=MODEL_COLOR_DICT["Diff. det."],
             alpha=0.3,
-            label="det. diff.",
+            label="Diff. det.",
         )
         ax.fill_between(
             dates[idxs],
             ens_diff_lower_bound[idxs],
             ens_diff_upper_bound[idxs],
-            color=cmap(6),
+            color=MODEL_COLOR_DICT["Diff. ens."],
             alpha=0.3,
-            label="ens. diff.",
+            label="Diff. ens.",
         )
         ax.fill_between(
             dates[idxs],
             wrf_diff_lower_bound[idxs],
             wrf_diff_upper_bound[idxs],
-            color=cmap(3),
+            color=MODEL_COLOR_DICT["WRF"],
             alpha=0.3,
             label="WRF",
         )
 
         # end
-        ax.plot(dates[idxs], cpc_timeseries[idxs], label="CombiPrecip", color=cmap(0))
+        ax.plot(
+            dates[idxs],
+            cpc_timeseries[idxs],
+            label="CombiPrecip",
+            color=MODEL_COLOR_DICT["CombiPrecip"],
+        )
 
         # add legend and save
         ax.set_xlabel("Dates")
@@ -451,31 +488,28 @@ def plot_lead_time_psd(
     ens_diff,
     wrf,
     cpc,
-    time_idxs,
     lead_time_idx,
     figs_dir,
 ):
     spatial_lenghts = det_s2s.get_spatial_lengths()
-    k, det_s2s_psd = get_1dpsd(
-        det_s2s.precip[lead_time_idx, time_idxs], *spatial_lenghts
-    )
+    k, det_s2s_psd = get_1dpsd(det_s2s.precip[lead_time_idx], *spatial_lenghts)
     _, ens_s2s_psd = get_1dpsd(
-        np.mean(ens_s2s.precip[lead_time_idx, :, time_idxs], axis=0),
+        np.mean(ens_s2s.precip[lead_time_idx], axis=0),
         *spatial_lenghts,
     )
     _, det_diff_psd = get_1dpsd(
-        np.mean(det_diff.precip[lead_time_idx, :, time_idxs], axis=0),
+        np.mean(det_diff.precip[lead_time_idx], axis=0),
         *spatial_lenghts,
     )
     _, ens_diff_psd = get_1dpsd(
-        np.mean(ens_diff.precip[lead_time_idx, :, time_idxs], axis=0),
+        np.mean(ens_diff.precip[lead_time_idx], axis=0),
         *spatial_lenghts,
     )
     _, wrf_psd = get_1dpsd(
-        np.mean(ens_diff.precip[lead_time_idx, :, time_idxs], axis=0),
+        np.mean(wrf.precip[lead_time_idx], axis=0),
         *spatial_lenghts,
     )
-    _, cpc_psd = get_1dpsd(cpc.precip[time_idxs], *spatial_lenghts)
+    _, cpc_psd = get_1dpsd(cpc.precip, *spatial_lenghts)
     wavelengths = 2 * np.pi / k[::-1]
 
     # get nyquist wavelnegths
@@ -489,16 +523,42 @@ def plot_lead_time_psd(
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    ax.plot(wavelengths[mask], det_s2s_psd[mask][::-1], label="S2S det.", color=cmap(1))
-    ax.plot(wavelengths[mask], ens_s2s_psd[mask][::-1], label="S2S ens.", color=cmap(2))
     ax.plot(
-        wavelengths[mask], det_diff_psd[mask][::-1], label="det. diff.", color=cmap(5)
+        wavelengths[mask],
+        det_s2s_psd[mask][::-1],
+        label="S2S det.",
+        color=MODEL_COLOR_DICT["S2S det."],
     )
     ax.plot(
-        wavelengths[mask], ens_diff_psd[mask][::-1], label="ens. diff.", color=cmap(6)
+        wavelengths[mask],
+        ens_s2s_psd[mask][::-1],
+        label="S2S ens.",
+        color=MODEL_COLOR_DICT["S2S ens."],
     )
-    ax.plot(wavelengths[mask], wrf_psd[mask][::-1], label="WRF", color=cmap(3))
-    ax.plot(wavelengths[mask], cpc_psd[mask][::-1], label="CombiPrecip", color=cmap(0))
+    ax.plot(
+        wavelengths[mask],
+        det_diff_psd[mask][::-1],
+        label="det. diff.",
+        color=MODEL_COLOR_DICT["Diff. det."],
+    )
+    ax.plot(
+        wavelengths[mask],
+        ens_diff_psd[mask][::-1],
+        label="ens. diff.",
+        color=MODEL_COLOR_DICT["Diff. ens."],
+    )
+    ax.plot(
+        wavelengths[mask],
+        wrf_psd[mask][::-1],
+        label="WRF",
+        color=MODEL_COLOR_DICT["WRF"],
+    )
+    ax.plot(
+        wavelengths[mask],
+        cpc_psd[mask][::-1],
+        label="CombiPrecip",
+        color=MODEL_COLOR_DICT["CombiPrecip"],
+    )
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -511,6 +571,52 @@ def plot_lead_time_psd(
     fig.savefig(os.path.join(figs_dir, f"psd_{lead_time_name}.png"))
 
 
+def plot_rank_histogram(
+    ens_s2s,
+    det_diff,
+    ens_diff,
+    wrf,
+    cpc,
+    lead_time_idx,
+    figs_dir,
+):
+    ens_s2s_values = ens_s2s.precip[lead_time_idx]
+    det_diff_values = det_diff.precip[lead_time_idx]
+    ens_diff_values = ens_diff.precip[lead_time_idx]
+    wrf_values = wrf.precip[lead_time_idx]
+    cpc_values = cpc.precip
+
+    # calculate ranks
+    ens_s2s_ranks = rank_histogram(ens_s2s_values, cpc_values)
+    det_diff_ranks = rank_histogram(det_diff_values, cpc_values)
+    ens_diff_ranks = rank_histogram(ens_diff_values, cpc_values)
+    wrf_ranks = rank_histogram(wrf_values, cpc_values)
+
+    # plot rank histograms
+    fig, ax = plt.subplots(2, 2, figsize=(8, 4), dpi=300)
+    ax[0, 0].hist(ens_s2s_ranks, color=MODEL_COLOR_DICT["S2S ens."], density=True)
+    ax[0, 0].set_title("a) S2S ens.")
+    ax[0, 1].hist(det_diff_ranks, color=MODEL_COLOR_DICT["Diff. det."], density=True)
+    ax[0, 1].set_title("b) Diff. det.")
+    ax[1, 0].hist(ens_diff_ranks, color=MODEL_COLOR_DICT["Diff. ens."], density=True)
+    ax[1, 0].set_title("c) Diff. ens.")
+    ax[1, 1].hist(wrf_ranks, color=MODEL_COLOR_DICT["WRF"], density=True)
+    ax[1, 1].set_title("d) WRF")
+
+    # labels
+    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax[1, 0].set_xlabel("Rank")
+    ax[1, 1].set_xlabel("Rank")
+    ax[0, 0].set_ylabel("Frequency")
+    ax[1, 0].set_ylabel("Frequency")
+
+    plt.tight_layout()
+
+    # save
+    lead_time_name = ens_s2s.lead_time[lead_time_idx]
+    fig.savefig(os.path.join(figs_dir, f"rank_histograms_{lead_time_name}.png"))
+
+
 def make_plots(
     s2s_det_path,
     s2s_ens_path,
@@ -518,7 +624,6 @@ def make_plots(
     diff_ens_path,
     wrf_path,
     cpc_path,
-    time_idxs,
     num_idx,
 ):
     det_s2s = ForecastSurfaceData.load_from_h5(s2s_det_path, ["precip"])
@@ -544,7 +649,6 @@ def make_plots(
             cpc,
             lead_time_idx,
             num_idx,
-            time_idxs,
             figs_dir,
         )
     print("maps saved")
@@ -558,7 +662,6 @@ def make_plots(
             ens_diff,
             wrf,
             cpc,
-            time_idxs,
             lead_time_idx,
             figs_dir,
         )
@@ -573,7 +676,6 @@ def make_plots(
             ens_diff,
             wrf,
             cpc,
-            time_idxs,
             lead_time_idx,
             figs_dir,
         )
@@ -588,11 +690,23 @@ def make_plots(
             ens_diff,
             wrf,
             cpc,
-            time_idxs,
             lead_time_idx,
             figs_dir,
         )
     print("psds saved")
+
+    # plot rank histogram for each lead time
+    for lead_time_idx in range(3):
+        plot_rank_histogram(
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("rank histograms saved")
 
 
 def main():
@@ -624,11 +738,9 @@ def main():
         "wrf.h5",
     )
     cpc_path = os.path.join(test_data_dir, "cpc.h5")
-    # time_idx for snapshots
-    # limamau: back to 16 when the two events will be available
-    time_idxs = [i for i in range(8)]
+
     # ensemble member for snapshots
-    num_idx = 0
+    num_idx = 0  # it has to be zero or 1 because there are only 2 simulations for WRF
 
     # main calls
     make_plots(
@@ -638,7 +750,6 @@ def main():
         diff_ens_path,
         wrf_path,
         cpc_path,
-        time_idxs,
         num_idx,
     )
 
