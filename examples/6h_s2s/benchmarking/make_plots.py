@@ -13,24 +13,65 @@ from data.surface_data import (
     SurfaceData,
 )
 from engineering.spectrum import get_1dpsd
-from evaluation.plots import CURVE_CMAP as cmap
+from evaluation.metrics import fss
+
+# from evaluation.plots import CURVE_CMAP as cmap
 from evaluation.plots import plot_maps
 from utils import get_cdf
 
 EVENT_LENGTH = 8
 NUMBER_OF_EVENTS = 2
 MODEL_COLOR_DICT = {
-    "S2S det.": cmap(1),
-    "S2S ens.": cmap(2),
-    "Diff. det.": cmap(5),
-    "Diff. ens.": cmap(6),
-    "WRF": cmap(3),
-    "CombiPrecip": cmap(0),
+    "S2S det.": "C0",
+    "S2S ens.": "C1",
+    "Diff. det.": "C0",
+    "Diff. ens.": "C1",
+    "WRF": "C2",
+    "CombiPrecip": "C3",
+}
+MODEL_LINESTYLE = {
+    "S2S det.": "--",
+    "S2S ens.": "--",
+    "Diff. det.": "-",
+    "Diff. ens.": "-",
+    "WRF": "-",
+    "CombiPrecip": "-",
 }
 TIME_IDXS = [i for i in range(EVENT_LENGTH * NUMBER_OF_EVENTS)]
 
 
 ### auxiliary functions ###
+def _make_arrows(ax, xpos, ypos):
+    # make arrows
+    ax.plot(
+        (1),
+        (0),
+        ls="",
+        marker=">",
+        ms=5,
+        color="k",
+        transform=ax.get_yaxis_transform(),
+        clip_on=False,
+    )
+    ax.plot(
+        (xpos),
+        (ypos),
+        ls="",
+        marker="^",
+        ms=5,
+        color="k",
+        transform=ax.get_xaxis_transform(),
+        clip_on=False,
+    )
+    # clean axis
+    ax.spines["left"].set_position("zero")
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_position("zero")
+    ax.spines["top"].set_visible(False)
+    ax.xaxis.set_ticks_position("bottom")
+    ax.yaxis.set_ticks_position("left")
+
+
 def rank_histogram(ens, obs):
     n_ens = ens.shape[0]
 
@@ -297,7 +338,54 @@ def plot_lead_time_distribution(
     )
 
 
-def plot_lead_time_map(
+def plot_lead_time_map_raw(
+    det_s2s,
+    cpc,
+    lead_time_idx,
+    figs_dir,
+):
+    image_paths = []
+
+    # save temporary images for each time_idx
+    for time_idx in TIME_IDXS:
+        arrays = (
+            cpc.precip[time_idx],
+            det_s2s.precip[0, time_idx],
+            det_s2s.precip[1, time_idx],
+            det_s2s.precip[2, time_idx],
+        )
+        titles = (
+            "a) CombiPrecip",
+            "a) S2S det. (1-week)",
+            "b) S2S det. (2-week)",
+            "c) S2S det. (3-week)",
+        )
+        cpc_extent = cpc.get_extent()
+        extents = (cpc_extent,) * 6
+        fig, _ = plot_maps(arrays, titles, extents)
+
+        image_path = os.path.join(figs_dir, f"temp_map_t{time_idx}.png")
+        fig.savefig(image_path)
+        plt.close(fig)  # important to avoid memory leak
+        image_paths.append(image_path)
+
+    # create the GIFs
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
+        gif_path = os.path.join(figs_dir, f"maps/maps_raw_e{event_idx}.gif")
+        with imageio.get_writer(gif_path, mode="I", duration=1000) as writer:
+            for image_path_idx in range(
+                (event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH
+            ):
+                image_path = image_paths[image_path_idx]
+                image = imageio.v2.imread(image_path)
+                writer.append_data(image)
+
+    # clean up temporary files
+    for image_path in image_paths:
+        os.remove(image_path)
+
+
+def plot_lead_time_map_complete(
     det_s2s,
     ens_s2s,
     det_diff,
@@ -598,7 +686,12 @@ def plot_rank_histogram(
 
     # plot rank histograms
     fig, ax = plt.subplots(2, 2, figsize=(8, 4), dpi=300)
-    ax[0, 0].hist(ens_s2s_ranks, color=MODEL_COLOR_DICT["S2S ens."], density=True)
+    ax[0, 0].hist(
+        ens_s2s_ranks,
+        color=MODEL_COLOR_DICT["S2S ens."],
+        histtype="step",
+        density=True,
+    )
     ax[0, 0].set_title("a) S2S ens.")
     ax[0, 1].hist(det_diff_ranks, color=MODEL_COLOR_DICT["Diff. det."], density=True)
     ax[0, 1].set_title("b) Diff. det.")
@@ -619,6 +712,112 @@ def plot_rank_histogram(
     # save
     lead_time_name = ens_s2s.lead_time[lead_time_idx]
     fig.savefig(os.path.join(figs_dir, f"ranks/rank_histograms_{lead_time_name}.png"))
+
+
+def get_av_fss(forecast, observations, threshold, num_neighbor):
+    members = np.arange(forecast.shape[0])
+    times = np.arange(forecast.shape[1])
+    avfss = 0.0
+    discount = 0
+    for m in members:
+        for t in times:
+            calcfss = fss(forecast[m, t], observations[t], threshold, num_neighbor)
+            if np.isnan(calcfss):
+                discount += 1
+            else:
+                avfss += calcfss
+            # print("avfss:", avfss)
+    if discount == len(members) * len(times):
+        return np.nan
+    else:
+        return avfss / (len(members) * len(times) - discount)
+
+
+def plot_avFSS(
+    det_s2s,
+    ens_s2s,
+    det_diff,
+    ens_diff,
+    wrf,
+    cpc,
+    lead_time_idx,
+    figs_dir,
+):
+    lead_time_name = det_s2s.lead_time[lead_time_idx]
+    print("avFSS -", lead_time_name)
+
+    # get values for lead time
+    det_s2s_values = np.expand_dims(det_s2s.precip[lead_time_idx], axis=0)
+    ens_s2s_values = ens_s2s.precip[lead_time_idx]
+    det_diff_values = det_diff.precip[lead_time_idx]
+    ens_diff_values = ens_diff.precip[lead_time_idx]
+    wrf_values = wrf.precip[lead_time_idx]
+    cpc_values = cpc.precip
+
+    # define FSS parameters
+    thresholds = [0.5, 1.0, 1.5, 2.0]
+    num_neighbors = [5, 15]
+
+    # arrays for model and parameters
+    det_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+    ens_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+    det_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+    ens_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+    wrf_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+
+    # get avFSS arrays
+    for i_thr, thr in enumerate(thresholds):
+        print("threshold:", thr)
+        for i_num, num in enumerate(num_neighbors):
+            det_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
+                det_s2s_values, cpc_values, thr, num
+            )
+            ens_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
+                ens_s2s_values, cpc_values, thr, num
+            )
+            det_diff_avfss_arr[i_thr, i_num] = get_av_fss(
+                det_diff_values, cpc_values, thr, num
+            )
+            ens_diff_avfss_arr[i_thr, i_num] = get_av_fss(
+                ens_diff_values, cpc_values, thr, num
+            )
+            wrf_avfss_arr[i_thr, i_num] = get_av_fss(wrf_values, cpc_values, thr, num)
+
+    model_labels = ["S2S det.", "S2S ens.", "Diff. det.", "Diff. ens.", "WRF"]
+    model_arrs = [
+        det_s2s_avfss_arr,
+        ens_s2s_avfss_arr,
+        det_diff_avfss_arr,
+        ens_diff_avfss_arr,
+        wrf_avfss_arr,
+    ]
+
+    # plot avFSS vs. thresholds for each num_neighbors
+    for i_num, num in enumerate(num_neighbors):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        for model_label, model_arr in zip(model_labels, model_arrs):
+            ax.plot(
+                thresholds,
+                model_arr[:, i_num],
+                label=model_label,
+                color=MODEL_COLOR_DICT[model_label],
+                linestyle=MODEL_LINESTYLE[model_label],
+            )
+        # add legend and save
+        ax.set_xlabel("Threshold (mm/hr)")
+        ax.set_xticks(thresholds)
+        ax.set_xlim(thresholds[0] - 0.05, thresholds[-1] + 0.05)
+        ax.set_ylabel("avFSS")
+        ax.set_yticks(np.arange(0.0, 0.4, 0.1))
+        ax.set_ylim(0.0, 0.25)
+        _make_arrows(ax, thresholds[0] - 0.05, 1)
+        ax.spines["left"].set_position(("data", thresholds[0] - 0.05))
+        plt.legend(loc="upper right")
+        fig.savefig(
+            os.path.join(figs_dir, f"fss/fss_{lead_time_name}_num{num}.png"),
+            dpi=300,
+        )
+        plt.close()
 
 
 def make_plots(
@@ -645,10 +844,20 @@ def make_plots(
     os.makedirs(figs_dir + "/cdfs", exist_ok=True)
     os.makedirs(figs_dir + "/psds", exist_ok=True)
     os.makedirs(figs_dir + "/ranks", exist_ok=True)
+    os.makedirs(figs_dir + "/fss", exist_ok=True)
+
+    # plot gifs for each lead time (and each event)
+    plot_lead_time_map_raw(
+        det_s2s,
+        cpc,
+        num_idx,
+        figs_dir,
+    )
+    print("maps raw saved")
 
     # plot gifs for each lead time (and each event)
     for lead_time_idx in range(3):
-        plot_lead_time_map(
+        plot_lead_time_map_complete(
             det_s2s,
             ens_s2s,
             det_diff,
@@ -659,7 +868,7 @@ def make_plots(
             num_idx,
             figs_dir,
         )
-    print("maps saved")
+    print("maps complete saved")
 
     # # plot timeseries for each lead time (and each event)
     # for lead_time_idx in range(3):
@@ -703,18 +912,32 @@ def make_plots(
     #     )
     # print("psds saved")
 
-    # # plot rank histogram for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_rank_histogram(
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("rank histograms saved")
+    # plot rank histogram for each lead time
+    for lead_time_idx in range(3):
+        plot_rank_histogram(
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("rank histograms saved")
+
+    # plot avFSS for lead time
+    for lead_time_idx in range(3):
+        plot_avFSS(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("avFSS saved")
 
 
 def main():
@@ -729,16 +952,17 @@ def main():
     # extra configurations
     s2s_det_path = os.path.join(test_data_dir, "det_s2s_nearest.h5")
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
+    weight = "heavy"
     cli = 50
     diff_det_path = os.path.join(
         simulations_dir,
         "diffusion",
-        f"det_heavy_cli{cli}_ens50.h5",
+        f"det_{weight}_cli{cli}_ens50.h5",
     )
     diff_ens_path = os.path.join(
         simulations_dir,
         "diffusion",
-        f"ens_heavy_cli{cli}_ens50.h5",
+        f"ens_{weight}_cli{cli}_ens50.h5",
     )
     wrf_path = os.path.join(
         simulations_dir,
