@@ -794,7 +794,7 @@ def plot_avFSS(
 
     # plot avFSS vs. thresholds for each num_neighbors
     for i_num, num in enumerate(num_neighbors):
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots(figsize=(4, 3))
         for model_label, model_arr in zip(model_labels, model_arrs):
             ax.plot(
                 thresholds,
@@ -813,6 +813,7 @@ def plot_avFSS(
         _make_arrows(ax, thresholds[0] - 0.05, 1)
         ax.spines["left"].set_position(("data", thresholds[0] - 0.05))
         plt.legend(loc="upper right")
+        plt.tight_layout()
         fig.savefig(
             os.path.join(figs_dir, f"fss/fss_{lead_time_name}_num{num}.png"),
             dpi=300,
@@ -957,11 +958,13 @@ def main():
     diff_det_path = os.path.join(
         simulations_dir,
         "diffusion",
+        # change to new here!
         f"det_{weight}_cli{cli}_ens50.h5",
     )
     diff_ens_path = os.path.join(
         simulations_dir,
         "diffusion",
+        # change to new here!
         f"ens_{weight}_cli{cli}_ens50.h5",
     )
     wrf_path = os.path.join(

@@ -92,11 +92,13 @@ def main():
     cli = 50
     diff_det_path = os.path.join(
         simulations_dir,
-        f"diffusion/det_heavy_cli{cli}_ens50.h5",
+        # changed to new
+        f"diffusion/det_heavy_cli{cli}_ens50_new.h5",
     )
     diff_ens_path = os.path.join(
         simulations_dir,
-        f"diffusion/ens_heavy_cli{cli}_ens50.h5",
+        # changed to new
+        f"diffusion/ens_heavy_cli{cli}_ens50_new.h5",
     )
     wrf_path = os.path.join(simulations_dir, "wrf", "wrf.h5")
     cpc_path = os.path.join(test_data_dir, "cpc.h5")

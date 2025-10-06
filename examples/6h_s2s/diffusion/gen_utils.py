@@ -1,7 +1,5 @@
 import jax.numpy as jnp
 import tensorflow as tf
-import jax.numpy as jnp
-
 from swirl_dynamics.data.hdf5_utils import read_single_array
 
 
@@ -9,12 +7,12 @@ def get_dataset(
     file_path: str,
     key: str,
     batch_size: int,
-    apply_log: bool=False,
-    epsilon: float=1e-6,
+    apply_log: bool = False,
+    epsilon: float = 1e-6,
 ):
     # Read the dataset from the .hdf5 file.
     images = read_single_array(file_path, key)
-    
+
     # Apply log
     if apply_log:
         images = jnp.log(images + epsilon)
@@ -42,10 +40,10 @@ def get_dataset(
 def normalize(images, mu=None, sigma=None, apply_log=False, epsilon=1e-6):
     if mu is None:
         mu = jnp.mean(images)
-        
+
     if sigma is None:
         sigma = jnp.std(images)
-        
+
     images = (images - mu) / sigma
 
     if apply_log:
