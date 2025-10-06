@@ -38,6 +38,7 @@ class SurfaceData:
                 low_pass_filter(
                     getattr(self, var_name),
                     data_lengths,
+                    getattr(sfc_data, var_name),
                     ref_lengths,
                 ),
             )
