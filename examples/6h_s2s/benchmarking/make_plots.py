@@ -755,7 +755,7 @@ def plot_avFSS(
     cpc_values = cpc.precip
 
     # define FSS parameters
-    thresholds = [0.5, 1.0, 1.5, 2.0]
+    thresholds = [0.5, 1.0, 1.5, 2.0, 2.5]
     num_neighbors = [5, 15]
 
     # arrays for model and parameters

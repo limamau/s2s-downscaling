@@ -15,10 +15,17 @@ def run_engineering(storm_dates, lead_time_files, cpc_file):
 
     # Load S2S
     s2s = aggregate_det_s2s_precip(lead_time_files, storm_dates)
+    # print("before:")
+    print("s2s extent:", s2s.get_extent())
+    print("s2s shape:", s2s.precip.shape)
     extent = cpc.get_extent()
     s2s.cut_data(extent)
     s2s.unflip_latlon()
-    print(f"Cut S2S data shape: {s2s.precip.shape}")
+    print("cpc extent:", cpc.get_extent())
+    print("cpc data shape:", cpc.precip.shape)
+    print("after:")
+    print("s2s extent:", s2s.get_extent())
+    print("s2s shape:", s2s.precip.shape)
 
     # Interpolate S2S to the same resolution as CombiPrecip
     nearest_s2s = copy.deepcopy(s2s)
