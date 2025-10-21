@@ -871,47 +871,47 @@ def make_plots(
         )
     print("maps complete saved")
 
-    # # plot timeseries for each lead time (and each event)
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_timeseries(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("timeseries saved")
+    # plot timeseries for each lead time (and each event)
+    for lead_time_idx in range(3):
+        plot_lead_time_timeseries(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("timeseries saved")
 
-    # # plot distribution for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_distribution(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("distributions saved")
+    # plot distribution for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_distribution(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("distributions saved")
 
-    # # plot psds for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_psd(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("psds saved")
+    # plot psds for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_psd(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("psds saved")
 
     # plot rank histogram for each lead time
     for lead_time_idx in range(3):
@@ -975,7 +975,7 @@ def main():
     cpc_path = os.path.join(test_data_dir, "cpc.h5")
 
     # ensemble member for snapshots
-    num_idx = 0  # it has to be zero or 1 because there are only 2 simulations for WRF
+    num_idx = 0
 
     # main calls
     make_plots(

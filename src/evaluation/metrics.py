@@ -187,7 +187,7 @@ def root_mean_squared_error(obs, sim):
     return np.sqrt(np.mean((obs - sim) ** 2))
 
 
-def wasserstein_distance(obs, sim):
+def wasserstein_distance(obs, sim, event_length):
     """
     Calculate the Wasserstein distance between two arrays.
     Currently using the properscoring library.
@@ -199,15 +199,20 @@ def wasserstein_distance(obs, sim):
     ## Returns:
     wasserstein_distance (float): Wasserstein distance.
     """
-    if len(sim.shape) > len(obs.shape):
-        num_ensembles = sim.shape[0]
-        wass_d = 0.0
-        for i in range(num_ensembles):
-            wass_d += wass_dist(obs.flatten(), sim[i].flatten())
-        wass_d /= num_ensembles
+    time_len = obs.shape[0]
+    num_events = time_len // event_length
+    if len(sim.shape) == len(obs.shape):
+        sim = np.expand_dims(sim, axis=0)
+    ensemble_size = sim.shape[0]
 
-    else:
-        wass_d = wass_dist(obs.flatten(), sim.flatten())
+    wass_d = 0.0
+    for e in range(num_events):
+        obs_event = obs[e * event_length : (e + 1) * event_length]
+        for i in range(ensemble_size):
+            sim_event = sim[i, e * event_length : (e + 1) * event_length]
+            wass_d += wass_dist(obs_event.flatten(), sim_event.flatten())
+
+    wass_d /= ensemble_size * num_events
 
     return wass_d
 
@@ -237,10 +242,6 @@ def fss(X_f, X_o, thr, scale):
     -------
     out: float
         The fractions skill score between 0 and 1.
-
-    References
-    ----------
-    :cite:`RL2008`, :cite:`EWWM2013`
     """
 
     fss = _fss_init(thr, scale)

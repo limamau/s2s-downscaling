@@ -9,6 +9,8 @@ from data.surface_data import (
 )
 from evaluation.metrics import crps, psd_distance, wasserstein_distance
 
+EVENT_TIME_LENGTH = 8
+
 
 def print_metric(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc, name, metric, *args):
     print(f"Metric: {name}")
@@ -60,6 +62,7 @@ def evaluate(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
         cpc,
         "Wasserstein distance",
         wasserstein_distance,
+        EVENT_TIME_LENGTH,
     )
 
     # psd distance
@@ -90,15 +93,16 @@ def main():
     s2s_det_path = os.path.join(test_data_dir, "det_s2s_nearest.h5")
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
     cli = 50
+    num_members = 50
     diff_det_path = os.path.join(
         simulations_dir,
         # changed to new
-        f"diffusion/det_heavy_cli{cli}_ens50_new.h5",
+        f"diffusion/det_heavy_cli{cli}_ens{num_members}_new.h5",
     )
     diff_ens_path = os.path.join(
         simulations_dir,
         # changed to new
-        f"diffusion/ens_heavy_cli{cli}_ens50_new.h5",
+        f"diffusion/ens_heavy_cli{cli}_ens{num_members}_new.h5",
     )
     wrf_path = os.path.join(simulations_dir, "wrf", "wrf.h5")
     cpc_path = os.path.join(test_data_dir, "cpc.h5")
@@ -110,6 +114,14 @@ def main():
     diff_ens = ForecastEnsembleSurfaceData.load_from_h5(diff_ens_path, ["precip"])
     wrf = ForecastEnsembleSurfaceData.load_from_h5(wrf_path, ["precip"])
     cpc = SurfaceData.load_from_h5(cpc_path, ["precip"])
+
+    # print shapes:
+    print("s2s det:", s2s_det.precip.shape)
+    print("s2s ens:", s2s_ens.precip.shape)
+    print("diff det:", diff_det.precip.shape)
+    print("diff ens:", diff_ens.precip.shape)
+    print("wrf:", wrf.precip.shape)
+    print("cpc:", cpc.precip.shape)
 
     evaluate(s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc)
 
