@@ -62,7 +62,7 @@ def run_spread_analysis(ens_s2s, ordered_idxs_choice):
 
     # plot of the ordered ensemble members by the mean precipitation
     # for each year and lead time
-    text_y_ref = np.mean(ens_s2s.precip) * 2
+    text_y_ref_dict = {"2018": 0.5, "2021": 0.36}
     for year, precip_mean in zip(
         ("2018", "2021"), (precip_2018_mean, precip_2021_mean)
     ):
@@ -74,9 +74,14 @@ def run_spread_analysis(ens_s2s, ordered_idxs_choice):
             )
             for enum, choice in enumerate(choices_dict[year][lead_time_name]):
                 plt.axvline(np.where(order == choice)[0], color="black", linestyle="--")
-                plt.text(np.where(order == choice)[0], text_y_ref, enum, color="black")
+                plt.text(
+                    np.where(order == choice)[0] + 1,
+                    text_y_ref_dict[year],
+                    f"member {enum + 1}",
+                    color="black",
+                )
         plt.xlabel("Ordered ensemble members")
-        plt.ylabel("Mean precipitation")
+        plt.ylabel("Mean precipitation (mm/h)")
         plt.legend()
         plt.savefig(os.path.join(figs_dir, f"ordered_spread_{year}.png"))
         plt.close()
@@ -113,7 +118,8 @@ def main():
     # extra configurations
     ens_s2s_file = os.path.join(test_data_dir, "ens_s2s_nearest_low-pass.h5")
     ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(ens_s2s_file, ["precip"])
-    ordered_idxs_choice = (0, 12, 25, 37, 49)
+    # ordered_idxs_choice = (0, 12, 25, 37, 49)
+    ordered_idxs_choice = (0, 25, 49)
 
     # main calls
     run_spread_analysis(ens_s2s, ordered_idxs_choice)

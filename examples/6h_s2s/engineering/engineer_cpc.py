@@ -1,37 +1,40 @@
-import glob, h5py, os, tomllib
+import glob
+import os
+
+import h5py
 import numpy as np
+import tomllib
+from configs.cpc import get_config
 from pyproj import Transformer
 from tqdm import tqdm
 
-from engineering.regridding import interpolate_data, regularize_grid, cut_data
 from data.surface_data import SurfaceData
-
-from configs.cpc import get_config
+from engineering.regridding import cut_data, interpolate_data, regularize_grid
 
 
 ### auxiliary functions ###
 def concat_cpc_6h(data_dir, initial_date, final_date):
     print(f"Processing from {initial_date} to {final_date}")
-    
+
     # Initialize lists for times and aggregated data
     times = []
     aggregated_data = []
 
     # Precompute time ranges for efficiency
-    total_days = np.timedelta64(final_date - initial_date, 'D').astype(int) + 1
+    total_days = np.timedelta64(final_date - initial_date, "D").astype(int) + 1
     intervals = [1, 7, 13, 19]
 
     for d in tqdm(range(total_days), desc="Aggregating data"):
-        current_date = initial_date + np.timedelta64(d, 'D')
-        next_date = current_date + np.timedelta64(1, 'D')
+        current_date = initial_date + np.timedelta64(d, "D")
+        next_date = current_date + np.timedelta64(1, "D")
         # TODO: this breaks for the last date of the year (that's not a problem for the current code)
 
         # Load current day and next day files
         current_pattern = f"CPC{str(current_date)[2:4]}{(current_date - np.datetime64(str(current_date)[:4] + '-01-01') + 1).astype(int):03d}"
         next_pattern = f"CPC{str(next_date)[2:4]}{(next_date - np.datetime64(str(next_date)[:4] + '-01-01') + 1).astype(int):03d}"
-        
-        current_files = sorted(glob.glob(os.path.join(data_dir, current_pattern) + '*'))
-        next_files = sorted(glob.glob(os.path.join(data_dir, next_pattern) + '*'))
+
+        current_files = sorted(glob.glob(os.path.join(data_dir, current_pattern) + "*"))
+        next_files = sorted(glob.glob(os.path.join(data_dir, next_pattern) + "*"))
 
         # Ensure there are enough files for all intervals
         if len(current_files) < 23 or not next_files:
@@ -42,23 +45,25 @@ def concat_cpc_6h(data_dir, initial_date, final_date):
         all_files = current_files[1:] + [next_files[0]]
 
         # Load and cache file data
-        daily_data = np.array([
-            h5py.File(file, 'r')['dataset1/data1/data'][...] for file in all_files
-        ])
+        daily_data = np.array(
+            [h5py.File(file, "r")["dataset1/data1/data"][...] for file in all_files]
+        )
 
         # Aggregate 6-hour intervals
         for start_hour in intervals:
             end_hour = start_hour + 5
             hour_indices = np.arange(start_hour - 1, end_hour)
             aggregated_data.append(np.mean(daily_data[hour_indices], axis=0))
-            times.append(current_date + np.timedelta64(end_hour, 'h'))
+            times.append(current_date + np.timedelta64(end_hour, "h"))
 
     return np.array(times), np.array(aggregated_data)
 
 
 def regrid_cpc(data, xs, ys, extent):
     lon_2d, lat_2d = transform_cpc_coordinates(xs, ys)
-    new_lon, new_lat, new_lon_2d, new_lat_2d = regularize_grid(lon_2d, lat_2d, xs.size, ys.size)
+    new_lon, new_lat, new_lon_2d, new_lat_2d = regularize_grid(
+        lon_2d, lat_2d, xs.size, ys.size
+    )
     new_data = interpolate_data(data, lon_2d, lat_2d, new_lon_2d, new_lat_2d)
     return cut_data(new_lon, new_lat, new_data, extent)
 
@@ -102,8 +107,10 @@ def preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months):
     first = True
     for year in years:
         for month in months:
-            start_date = np.datetime64(f'{year}-{month:02d}-01')
-            end_date = np.datetime64(f'{year}-{month+1:02d}-01') - np.timedelta64(1, 'D')
+            start_date = np.datetime64(f"{year}-{month:02d}-01")
+            end_date = np.datetime64(f"{year}-{month + 1:02d}-01") - np.timedelta64(
+                1, "D"
+            )
             if first:
                 times, lats, lons, data = process_month(
                     raw_data_dir, start_date, end_date, xs, ys, new_extent
@@ -115,16 +122,16 @@ def preprocess_cpc_data(raw_data_dir, xs, ys, new_extent, years, months):
                 )
                 times = np.concatenate([times, aux_times], axis=0)
                 data = np.concatenate([data, aux_data], axis=0)
-    
+
     # pass time to nanoseconds to avoid warning in xarray
-    times = times.astype('datetime64[ns]')
-    
+    times = times.astype("datetime64[ns]")
+
     # clip negative values
     data = np.where(data < 0, 0, data)
-    
+
     # clip NaN values to 0
     data = np.where(np.isnan(data), 0, data)
-    
+
     return SurfaceData(times, lats, lons, precip=data)
 
 
@@ -165,5 +172,5 @@ def main():
     sfc_data.save_to_h5(os.path.join(train_data_dir, "cpc.h5"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
