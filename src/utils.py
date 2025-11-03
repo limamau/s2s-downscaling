@@ -1,12 +1,16 @@
-import os, shutil
-import jax, h5py
-import numpy as np
-import jax.numpy as jnp
-import xarray as xr
-from math import radians, sin, cos, sqrt, atan2
+import os
+import shutil
+from math import atan2, cos, radians, sin, sqrt
 from typing import Dict
 
+import h5py
+import jax
+import jax.numpy as jnp
+import numpy as np
+import xarray as xr
+
 # Utils function in (almost) alfabetical order
+
 
 def batch_mul(a, b):
     """
@@ -22,8 +26,8 @@ def create_folder(path, overwrite=False):
     if os.path.exists(path) & overwrite:
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
-    
-    
+
+
 def delog_transform(data, epsilon=1e-4):
     """
     Inverse of log transformation.
@@ -35,10 +39,18 @@ def denormalize_data(data, mean, std, norm_mean=0.0, norm_std=1.0):
     """
     Inverse of normalization.
     """
-    return (data-norm_mean) * std / norm_std + mean
+    return (data - norm_mean) * std / norm_std + mean
 
 
-def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True, clip_zero=False):
+def deprocess_data(
+    data,
+    mean,
+    std,
+    norm_mean=0.0,
+    norm_std=1.0,
+    is_log_transforming=True,
+    clip_zero=False,
+):
     """
     Inverse of process_data.
     """
@@ -50,28 +62,32 @@ def deprocess_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transfor
     return data
 
 
-def filter_dry_images(data, threshold=0.1, fraction=0.2, seed=123, return_indices=False):
+def filter_dry_images(
+    data, threshold=0.1, fraction=0.2, seed=123, return_indices=False
+):
     """
     Filters out very dry images from the input data based on the mean rain information.
     This is useful to avoid overweighting the model to no rain events.
     """
     # Calculate the mean rain information for each image
     mean_rain = jnp.mean(data, axis=(1, 2))
-    
+
     # Find the indices of very dry images
     dry_indices = jnp.where(mean_rain < threshold)[0]
-    
+
     # Randomly select 1/4 of the very dry images
     num_to_select = int(len(dry_indices) * fraction)
     rng = jax.random.PRNGKey(seed)
-    selected_indices = jax.random.choice(rng, dry_indices, shape=(num_to_select,), replace=False)
-    
+    selected_indices = jax.random.choice(
+        rng, dry_indices, shape=(num_to_select,), replace=False
+    )
+
     # Find the indices of images that are not very dry
     non_dry_indices = jnp.where(mean_rain >= threshold)[0]
-    
+
     # Combine the selected dry indices with the non-dry indices
     final_indices = jnp.concatenate([selected_indices, non_dry_indices])
-    
+
     if return_indices:
         return final_indices
     else:
@@ -83,7 +99,7 @@ def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
     Finds the intersection point of two curves (era5_psd and cpc_psd) based on the given wavelengths.
     """
     # Find the differences between the two curves
-    y1 = np.log(era5_psd)[1:] # there's a problem with the first value?
+    y1 = np.log(era5_psd)[1:]  # there's a problem with the first value?
     y2 = np.log(cpc_psd)[1:]
     diff = y2 - y1
 
@@ -91,8 +107,8 @@ def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
     idx = np.where(diff < threshold)[0][0]
 
     # Return the wavelength and y-value at the intersection point
-    lambda_star = wavelengths[idx+1 +1]
-    psd_star = cpc_psd[idx+1 +1]
+    lambda_star = wavelengths[idx + 1 + 1]
+    psd_star = cpc_psd[idx + 1 + 1]
 
     return lambda_star, psd_star
 
@@ -112,10 +128,12 @@ def get_spatial_lengths(lons, lats):
     # Get spatial lengths
     x_length = haversine(lons.min(), lats.min(), lons.max(), lats.min())
     y_length = haversine(lons.min(), lats.min(), lons.min(), lats.max())
-    
+
     return x_length, y_length
 
+
 # Utils function in alfabetical order
+
 
 def batch_add(a, b):
     """
@@ -145,7 +163,7 @@ def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
     Finds the intersection point of two curves (era5_psd and cpc_psd) based on the given wavelengths.
     """
     # Find the differences between the two curves
-    y1 = np.log(era5_psd + 10e-15)[1:] # there's a problem with the first value?
+    y1 = np.log(era5_psd + 10e-15)[1:]  # there's a problem with the first value?
     y2 = np.log(cpc_psd + 10e-15)[1:]
     diff = y2 - y1
 
@@ -153,8 +171,8 @@ def find_intersection(wavelengths, era5_psd, cpc_psd, threshold=1):
     idx = np.where(diff < threshold)[0][0]
 
     # Return the wavelength and y-value at the intersection point
-    lambda_star = wavelengths[idx+1]
-    psd_star = cpc_psd[idx+1]
+    lambda_star = wavelengths[idx + 1]
+    psd_star = cpc_psd[idx + 1]
 
     return lambda_star, psd_star
 
@@ -170,7 +188,7 @@ def get_precip_dims_dict(file_path: str):
         for key in f.keys():
             if len(f[key].shape) == 1:
                 dims_dict[key] = f[key][:]
-                
+
     return dims_dict
 
 
@@ -192,17 +210,6 @@ def get_pdf(x, bins):
     return pdf / pdf.sum()
 
 
-def get_spatial_lengths(lons, lats):
-    """
-    Calculates the spatial lengths (x_length and y_length) based on the given longitude and latitude values.
-    """
-    # Get spatial lengths
-    x_length = haversine(lons.min(), lats.min(), lons.max(), lats.min())
-    y_length = haversine(lons.min(), lats.min(), lons.min(), lats.max())
-    
-    return x_length, y_length
-
-
 def haversine(lon1, lat1, lon2, lat2):
     """
     Calculates the distance between two points on the Earth's surface using the Haversine formula.
@@ -212,15 +219,15 @@ def haversine(lon1, lat1, lon2, lat2):
     lon1_rad = radians(lon1)
     lat2_rad = radians(lat2)
     lon2_rad = radians(lon2)
-    
+
     # Haversine formula
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
-    a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+    a = sin(dlat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) ** 2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     R = 6371  # Radius of the Earth in kilometers
     distance = R * c
-    
+
     return distance
 
 
@@ -244,7 +251,9 @@ def normalize_data(data, mean=None, std=None, norm_mean=0.0, norm_std=1.0):
     return normalized_data, mean, std
 
 
-def process_data(data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True):
+def process_data(
+    data, mean, std, norm_mean=0.0, norm_std=1.0, is_log_transforming=True
+):
     """
     Apply log transformation (if True) and normalization to the input data with given std_data.
     """
@@ -272,13 +281,13 @@ def _write_deterministic_dataset(times, lats, lons, data, filename):
         {
             "precip": (["time", "latitude", "longitude"], data),
         },
-        coords = {
+        coords={
             "time": (["time"], times),
             "latitude": (["latitude"], lats),
             "longitude": (["longitude"], lons),
         },
     )
-    
+
     # Write dataset
     ds.to_netcdf(filename, engine="h5netcdf")
 
@@ -292,18 +301,18 @@ def _write_ensemble_dataset(times, lats, lons, data, filename):
         {
             "precip": (["time", "ensemble", "latitude", "longitude"], data),
         },
-        coords = {
+        coords={
             "time": (["time"], times),
             "ensemble": (["ensemble"], np.arange(data.shape[1])),
             "latitude": (["latitude"], lats),
             "longitude": (["longitude"], lons),
         },
     )
-    
+
     # Write dataset
     ds.to_netcdf(filename, engine="h5netcdf")
-    
-    
+
+
 def write_dataset(times, lats, lons, data, filename):
     """
     Creates an xarray dataset from the input data and writes it to a .h5 file at the specified filename.
@@ -315,26 +324,23 @@ def write_dataset(times, lats, lons, data, filename):
     elif len(data.shape) == 3:
         _write_deterministic_dataset(times, lats, lons, data, filename)
     else:
-        raise ValueError("Data must have either 4 (deterministic) or 5 (ensemble) dimensions.")    
-    
+        raise ValueError(
+            "Data must have either 4 (deterministic) or 5 (ensemble) dimensions."
+        )
+
 
 def write_precip_to_h5(dims: Dict[str, np.ndarray], data: np.ndarray, filename: str):
     """
     Writes the input data to a .h5 file at the specified filename following the specified dimensions.
     """
     dim_keys = list(dims.keys())
-    
+
     if data.shape != tuple(len(dims[dim]) for dim in dim_keys):
         raise ValueError("Shape of data does not match the dimensions in dims.")
 
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
-        
-    ds = xr.Dataset(
-        {
-            "precip": (dim_keys, data)
-        },
-        coords=dims
-    )
+
+    ds = xr.Dataset({"precip": (dim_keys, data)}, coords=dims)
 
     ds.to_netcdf(filename, engine="h5netcdf")
