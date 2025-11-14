@@ -1,5 +1,4 @@
 import numpy as np
-import properscoring as ps
 from scipy.ndimage import uniform_filter
 from scipy.stats import rankdata
 from scipy.stats import wasserstein_distance as wass_dist
@@ -59,13 +58,29 @@ def crps(obs, sim):
     ## Returns:
     crps (float): Continuous Ranked Probability Score.
     """
-    if len(sim.shape) > len(obs.shape):
-        # this is done because I use the ensemble dimension as the first one
-        # (actually the second after lead time, but we calculate that for each lead time)
-        # and properscoring expects the ensemble dimension as the last one
-        sim = np.transpose(sim)
-        obs = np.transpose(obs)
-    return np.mean(ps.crps_ensemble(obs, sim))
+    sim = np.asarray(sim)
+    obs = np.asarray(obs)
+
+    if obs.shape == sim.shape:
+        sim = np.expand_dims(sim, axis=0)
+
+    if obs.shape != sim.shape[1:]:
+        print("obs shape:", obs.shape)
+        print("sim shape:", sim.shape)
+        raise ValueError("Observation shape must match simulation shape.")
+
+    # first term: mean absolute error between ensemble members and obs
+    term1 = np.mean(np.abs(sim - obs), axis=0)
+
+    # second term: ensemble member pairwise absolute differences
+    diff = np.abs(sim[:, None, ...] - sim[None, :, ...])
+    term2 = 0.5 * np.mean(diff, axis=(0, 1))
+
+    # CRPS at each grid point
+    crps_field = term1 - term2
+
+    # return mean
+    return np.mean(crps_field)
 
 
 def mean_absolute_error(obs, sim, axis=(0, 1, 2)):
@@ -187,10 +202,9 @@ def root_mean_squared_error(obs, sim):
     return np.sqrt(np.mean((obs - sim) ** 2))
 
 
-def wasserstein_distance(obs, sim, event_length):
+def wasserstein_distance(obs, sim):
     """
     Calculate the Wasserstein distance between two arrays.
-    Currently using the properscoring library.
 
     ## Parameters:
     obs (array): Observed values.
@@ -199,22 +213,7 @@ def wasserstein_distance(obs, sim, event_length):
     ## Returns:
     wasserstein_distance (float): Wasserstein distance.
     """
-    time_len = obs.shape[0]
-    num_events = time_len // event_length
-    if len(sim.shape) == len(obs.shape):
-        sim = np.expand_dims(sim, axis=0)
-    ensemble_size = sim.shape[0]
-
-    wass_d = 0.0
-    for e in range(num_events):
-        obs_event = obs[e * event_length : (e + 1) * event_length]
-        for i in range(ensemble_size):
-            sim_event = sim[i, e * event_length : (e + 1) * event_length]
-            wass_d += wass_dist(obs_event.flatten(), sim_event.flatten())
-
-    wass_d /= ensemble_size * num_events
-
-    return wass_d
+    return wass_dist(obs.flatten(), sim.flatten())
 
 
 # the following was copied from pysteps in
