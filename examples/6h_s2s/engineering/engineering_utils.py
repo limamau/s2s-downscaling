@@ -102,7 +102,7 @@ def aggregate_single_ens_s2s_precip(lead_time_files, storm_dates, num_idx):
             print("tp shape:", tp.shape)
             time = xr.open_dataset(file).time.values
             idxs_to_keep = get_s2s_idxs_to_keep(time, storm_dates[i])
-            problematic_idxs = check_monotonic(tp)
+            # problematic_idxs = check_monotonic(tp)
             # print("tp[0]:", tp[problematic_idxs[0], 600:605, 1200:1205])
             # print("tp[0+1]:", tp[problematic_idxs[0]+1, 600:605, 1200:1205])
             idxs_to_keep_diff = np.concatenate(
@@ -241,6 +241,7 @@ def check_monotonic(tp):
 def get_s2s_idxs_to_keep(times, bound_dates):
     idxs_to_keep = []
     start, end = bound_dates
+    print("times:", times)
     start = np.datetime64(start) + np.timedelta64(6, "h")
     end = np.datetime64(end) + np.timedelta64(24, "h")
     idxs_to_keep = [i for i, t in enumerate(times) if start <= t <= end]

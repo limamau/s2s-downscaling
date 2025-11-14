@@ -1,4 +1,5 @@
-import os, ml_collections
+import ml_collections
+
 
 def get_config():
     config = ml_collections.ConfigDict()
@@ -8,5 +9,5 @@ def get_config():
     config.medium_multiplier = 1
     config.high_percentile = 99
     config.high_multiplier = 1
-    
+
     return config
