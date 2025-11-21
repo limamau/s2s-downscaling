@@ -11,10 +11,10 @@ def get_config(raw_data_dir, test_data_dir):
         (np.datetime64("2021-06-28"), np.datetime64("2021-06-29")),
     )
     config.lead_time_files = {
-        # "1-day": (
-        #     os.path.join(raw_data_dir, "hind_cf_tp_2018-06-11_tp.nc"),
-        #     os.path.join(raw_data_dir, "hind_cf_tp_2021-06-28_tp.nc"),
-        # ),
+        "0-day": (
+            os.path.join(raw_data_dir, "det_sfc_2018-06-11_tp.nc"),
+            os.path.join(raw_data_dir, "det_sfc_2021-06-28_tp.nc"),
+        ),
         "1-week": (
             os.path.join(raw_data_dir, "det_sfc_2018-06-04_tp.nc"),
             os.path.join(raw_data_dir, "det_sfc_2021-06-21_tp.nc"),
