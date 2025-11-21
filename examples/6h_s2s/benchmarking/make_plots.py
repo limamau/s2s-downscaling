@@ -322,21 +322,45 @@ def plot_lead_time_dists(
         )
 
 
-def plot_lead_time_map_raw(
-    det_s2s,
-    cpc,
-    lead_time_idx,
-    figs_dir,
-):
+def plot_lead_time_agg_raw(climatology, det_s2s, cpc, figs_dir):
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
+        time_idxs = slice((event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH)
+        print(f"event {event_idx} time idxs: {time_idxs}")
+        arrays = (
+            np.mean(det_s2s.precip[0, time_idxs], axis=0),
+            np.mean(det_s2s.precip[1, time_idxs], axis=0),
+            np.mean(det_s2s.precip[2, time_idxs], axis=0),
+            np.mean(det_s2s.precip[3, time_idxs], axis=0),
+            np.mean(cpc.precip[time_idxs], axis=0),
+            climatology.precip[0],  # makes no difference for climatology!
+        )
+        titles = (
+            "a) IFS det. (0-day)",
+            "b) IFS det. (1-week)",
+            "c) IFS det. (2-week)",
+            "d) IFS det. (3-week)",
+            "e) CombiPrecip",
+            "f) Climatology",
+        )
+        cpc_extent = cpc.get_extent()
+        extents = (cpc_extent,) * 6
+        fig, _ = plot_maps(arrays, titles, extents)
+
+        image_path = os.path.join(figs_dir, f"maps/agg_map_e{event_idx}.png")
+        fig.savefig(image_path)
+        plt.close(fig)
+
+
+def plot_lead_time_gifs_raw(det_s2s, cpc, figs_dir):
     image_paths = []
 
     # save temporary images for each time_idx
     for time_idx in TIME_IDXS:
         arrays = (
             cpc.precip[time_idx],
-            det_s2s.precip[0, time_idx],
             det_s2s.precip[1, time_idx],
             det_s2s.precip[2, time_idx],
+            det_s2s.precip[3, time_idx],
         )
         titles = (
             "a) CombiPrecip",
@@ -350,7 +374,7 @@ def plot_lead_time_map_raw(
 
         image_path = os.path.join(figs_dir, f"temp_map_t{time_idx}.png")
         fig.savefig(image_path)
-        plt.close(fig)  # important to avoid memory leak
+        plt.close(fig)
         image_paths.append(image_path)
 
     # create the GIFs
@@ -848,6 +872,7 @@ def plot_avFSS(
 
 
 def make_plots(
+    climatology_path,
     s2s_det_path,
     s2s_ens_path,
     diff_det_path,
@@ -856,6 +881,7 @@ def make_plots(
     cpc_path,
     num_idx,
 ):
+    climatology = SurfaceData.load_from_h5(climatology_path, ["precip"])
     det_s2s = ForecastSurfaceData.load_from_h5(s2s_det_path, ["precip"])
     ens_s2s = ForecastEnsembleSurfaceData.load_from_h5(s2s_ens_path, ["precip"])
     det_diff = ForecastEnsembleSurfaceData.load_from_h5(diff_det_path, ["precip"])
@@ -875,14 +901,22 @@ def make_plots(
 
     # plots, plot and plots #
 
+    # plot gifs for each lead time (and each event)
+    plot_lead_time_agg_raw(
+        climatology,
+        det_s2s,
+        cpc,
+        figs_dir,
+    )
+    print("agg maps raw saved")
+
     # # plot gifs for each lead time (and each event)
-    # plot_lead_time_map_raw(
+    # plot_lead_time_gifs_raw(
     #     det_s2s,
     #     cpc,
-    #     num_idx,
     #     figs_dir,
     # )
-    # print("maps raw saved")
+    # print("gif maps raw saved")
 
     # # plot gifs for each lead time (and each event)
     # for lead_time_idx in range(3):
@@ -899,23 +933,9 @@ def make_plots(
     #     )
     # print("maps complete saved")
 
-    # # plot timeseries for each lead time (and each event)
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_timeseries(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("timeseries saved")
-
-    # plot distribution for each lead time
+    # plot timeseries for each lead time (and each event)
     for lead_time_idx in range(3):
-        plot_lead_time_dists(
+        plot_lead_time_timeseries(
             det_s2s,
             ens_s2s,
             det_diff,
@@ -925,7 +945,21 @@ def make_plots(
             lead_time_idx,
             figs_dir,
         )
-    print("distributions saved")
+    print("timeseries saved")
+
+    # # plot distribution for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_dists(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("distributions saved")
 
     # # plot psds for each lead time
     # for lead_time_idx in range(3):
@@ -979,21 +1013,21 @@ def main():
     simulations_dir = os.path.join(base, dirs["subs"]["simulations"])
 
     # extra configurations
+    climatology_path = os.path.join(test_data_dir, "climatology.h5")
     s2s_det_path = os.path.join(test_data_dir, "det_s2s_nearest.h5")
     s2s_ens_path = os.path.join(test_data_dir, "ens_s2s_nearest.h5")
     weight = "heavy"
     cli = 50
+    num_samples = 50
     diff_det_path = os.path.join(
         simulations_dir,
         "diffusion",
-        # change to new here!
-        f"det_{weight}_cli{cli}_ens50.h5",
+        f"det_{weight}_cli{cli}_ens{num_samples}.h5",
     )
     diff_ens_path = os.path.join(
         simulations_dir,
         "diffusion",
-        # change to new here!
-        f"ens_{weight}_cli{cli}_ens50.h5",
+        f"ens_{weight}_cli{cli}_ens{num_samples}.h5",
     )
     wrf_path = os.path.join(
         simulations_dir,
@@ -1007,6 +1041,7 @@ def main():
 
     # main calls
     make_plots(
+        climatology_path,
         s2s_det_path,
         s2s_ens_path,
         diff_det_path,

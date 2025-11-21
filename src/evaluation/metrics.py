@@ -47,17 +47,6 @@ def cdf_distance(obs, sim, n_quantiles=200, distance="l2"):
 
 
 def crps(obs, sim):
-    """
-    Calculate the Continuous Ranked Probability Score (CRPS) between two arrays.
-    Currently using the properscoring library.
-
-    ## Parameters:
-    obs (array): Observed values.
-    sim (array): Simulated values.
-
-    ## Returns:
-    crps (float): Continuous Ranked Probability Score.
-    """
     sim = np.asarray(sim)
     obs = np.asarray(obs)
 
@@ -69,17 +58,19 @@ def crps(obs, sim):
         print("sim shape:", sim.shape)
         raise ValueError("Observation shape must match simulation shape.")
 
-    # first term: mean absolute error between ensemble members and obs
+    # term1: mean absolute error between ensemble members and obs
     term1 = np.mean(np.abs(sim - obs), axis=0)
 
-    # second term: ensemble member pairwise absolute differences
-    diff = np.abs(sim[:, None, ...] - sim[None, :, ...])
-    term2 = 0.5 * np.mean(diff, axis=(0, 1))
+    # term2: mean pairwise absolute differences between ensemble members
+    # Instead of creating the full diff array, use broadcasting and sum
+    n = sim.shape[0]
+    term2 = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            term2 += np.abs(sim[i] - sim[j])
+    term2 = term2 * 2 / (n * n)  # since we only sum i < j, multiply by 2
+    crps_field = term1 - 0.5 * term2
 
-    # CRPS at each grid point
-    crps_field = term1 - term2
-
-    # return mean
     return np.mean(crps_field)
 
 
