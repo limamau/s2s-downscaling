@@ -202,7 +202,7 @@ def main():
     save_file_path = os.path.join(
         simulations_dir,
         "diffusion",
-        f"det_{model_config.experiment_name}_cli{clip_max}_ens{num_samples}_new.h5",
+        f"det_{model_config.experiment_name}_cli{clip_max}_ens{num_samples}.h5",
     )
 
     # main call

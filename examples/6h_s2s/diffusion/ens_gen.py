@@ -168,11 +168,11 @@ def main():
     train_file_path = os.path.join(train_data_dir, model_config.train_file_name)
     prior_file_path = os.path.join(test_data_dir, "ens_s2s_nearest_low-pass.h5")
     clip_max = 50
-    num_samples = 1
+    num_samples = 50
     save_file_path = os.path.join(
         simulations_dir,
         "diffusion",
-        f"ens_{model_config.experiment_name}_cli{clip_max}_ens{num_samples * 50}_new.h5",
+        f"ens_{model_config.experiment_name}_cli{clip_max}_ens{num_samples * 50}.h5",
     )
 
     # main call

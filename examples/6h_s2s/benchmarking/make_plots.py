@@ -327,26 +327,26 @@ def plot_lead_time_agg_raw(climatology, det_s2s, cpc, figs_dir):
         time_idxs = slice((event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH)
         print(f"event {event_idx} time idxs: {time_idxs}")
         arrays = (
+            np.mean(cpc.precip[time_idxs], axis=0),
+            climatology.precip[0],  # makes no difference for climatology!
             np.mean(det_s2s.precip[0, time_idxs], axis=0),
             np.mean(det_s2s.precip[1, time_idxs], axis=0),
             np.mean(det_s2s.precip[2, time_idxs], axis=0),
             np.mean(det_s2s.precip[3, time_idxs], axis=0),
-            np.mean(cpc.precip[time_idxs], axis=0),
-            climatology.precip[0],  # makes no difference for climatology!
         )
         titles = (
-            "a) IFS det. (0-day)",
-            "b) IFS det. (1-week)",
-            "c) IFS det. (2-week)",
-            "d) IFS det. (3-week)",
-            "e) CombiPrecip",
-            "f) Climatology",
+            "a) CombiPrecip",
+            "b) Climatology",
+            "c) IFS det. (0-day)",
+            "d) IFS det. (1-week)",
+            "e) IFS det. (2-week)",
+            "f) IFS det. (3-week)",
         )
         cpc_extent = cpc.get_extent()
         extents = (cpc_extent,) * 6
         fig, _ = plot_maps(arrays, titles, extents)
 
-        image_path = os.path.join(figs_dir, f"maps/agg_map_e{event_idx}.png")
+        image_path = os.path.join(figs_dir, f"maps/agg_raw_e{event_idx}.png")
         fig.savefig(image_path)
         plt.close(fig)
 
@@ -453,6 +453,84 @@ def plot_lead_time_map_complete(
     # clean up temporary files
     for image_path in image_paths:
         os.remove(image_path)
+
+
+def plot_lead_time_agg(
+    det_s2s,
+    ens_s2s,
+    det_diff,
+    ens_diff,
+    wrf,
+    cpc,
+    lead_time_idx,
+    num_idx,
+    figs_dir,
+):
+    lead_time_name = det_s2s.lead_time[lead_time_idx + 1]
+    print(f"lead time = {lead_time_name}")
+
+    # aggregate (mean) over the time indices in TIME_IDXS, but pick
+    # the num_idx/ensemble member that has the most total precipitation
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
+        time_slice = slice((event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH)
+        print(f"event {event_idx} time idxs: {time_slice}")
+
+        # det_s2s: just mean over times
+        det_arr = np.mean(det_s2s.precip[lead_time_idx + 1, time_slice], axis=0)
+
+        # ens_s2s: choose ensemble member with largest total precip over event
+        ens_event = ens_s2s.precip[
+            lead_time_idx + 1, :, time_slice
+        ]  # (members, time, lat, lon)
+        ens_totals = np.sum(ens_event, axis=(1, 2, 3))
+        best_ens_idx = int(np.argmax(ens_totals))
+        ens_arr = np.mean(ens_event[best_ens_idx], axis=0)
+        num_members_ens_s2s = ens_event.shape[0]
+
+        # det_diff: select num_idx with largest total precip (as in your previous use)
+        det_diff_event = det_diff.precip[
+            lead_time_idx, :, time_slice
+        ]  # (num_idx, time, lat, lon)
+        det_diff_totals = np.sum(det_diff_event, axis=(1, 2, 3))
+        best_det_diff_idx = int(np.argmax(det_diff_totals))
+        det_diff_arr = np.mean(det_diff_event[best_det_diff_idx], axis=0)
+        num_members_det_diff = det_diff_event.shape[0]
+
+        # ens_diff: select best num_idx
+        ens_diff_event = ens_diff.precip[lead_time_idx, :, time_slice]
+        ens_diff_totals = np.sum(ens_diff_event, axis=(1, 2, 3))
+        best_ens_diff_idx = int(np.argmax(ens_diff_totals))
+        ens_diff_arr = np.mean(ens_diff_event[best_ens_diff_idx], axis=0)
+        num_members_ens_diff = ens_diff_event.shape[0]
+
+        # wrf: select best num_idx
+        wrf_event = wrf.precip[lead_time_idx, :, time_slice]
+        wrf_totals = np.sum(wrf_event, axis=(1, 2, 3))
+        best_wrf_idx = int(np.argmax(wrf_totals))
+        wrf_arr = np.mean(wrf_event[best_wrf_idx], axis=0)
+        num_members_wrf = wrf_event.shape[0]
+
+        # cpc: mean over time window
+        cpc_arr = np.mean(cpc.precip[time_slice], axis=0)
+
+        arrays = (det_arr, ens_arr, det_diff_arr, ens_diff_arr, wrf_arr, cpc_arr)
+        titles = (
+            "a) IFS det. + NN",
+            f"b) IFS ens. + NN (member {best_ens_idx + 1}/{num_members_ens_s2s})",
+            f"c) Diff. det. (member {best_det_diff_idx + 1}/{num_members_det_diff})",
+            f"d) Diff. ens. (member {best_ens_diff_idx + 1}/{num_members_ens_diff})",
+            f"e) WRF (member {best_wrf_idx + 1}/{num_members_wrf})",
+            "f) CombiPrecip",
+        )
+
+        cpc_extent = cpc.get_extent()
+        extents = (cpc_extent,) * 6
+        fig, _ = plot_maps(arrays, titles, extents)
+        image_path = os.path.join(
+            figs_dir, f"maps/agg_map_{lead_time_name}_e{event_idx}.png"
+        )
+        fig.savefig(image_path, bbox_inches="tight")
+        plt.close(fig)
 
 
 def plot_lead_time_timeseries(
@@ -597,9 +675,9 @@ def plot_lead_time_psd(
     figs_dir,
 ):
     spatial_lenghts = det_s2s.get_spatial_lengths()
-    k, det_s2s_psd = get_1dpsd(det_s2s.precip[lead_time_idx], *spatial_lenghts)
+    k, det_s2s_psd = get_1dpsd(det_s2s.precip[lead_time_idx + 1], *spatial_lenghts)
     _, ens_s2s_psd = get_1dpsd(
-        np.mean(ens_s2s.precip[lead_time_idx], axis=0),
+        np.mean(ens_s2s.precip[lead_time_idx + 1], axis=0),
         *spatial_lenghts,
     )
     _, det_diff_psd = get_1dpsd(
@@ -626,7 +704,7 @@ def plot_lead_time_psd(
     # mask wavelengths above nyquist
     mask = wavelengths > max(nyquist_wavelngths)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(7, 5))
 
     ax.plot(
         wavelengths[mask],
@@ -671,21 +749,18 @@ def plot_lead_time_psd(
         linestyle=MODEL_LINESTYLE["CombiPrecip"],
     )
 
+    LAMBDA_STAR = 2.3e2
+    ax.axvline(LAMBDA_STAR, color="black", linestyle="--")
+    ax.text(LAMBDA_STAR * 1.1, 1e-5, r"$\lambda^\star$", fontsize="large")
+
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("Wavelengths (km)")
     ax.set_ylabel("Power spectral density")
     ax.legend()
 
-    # --- Remove the box look ---
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
-    # Keep normal bottom/left spines (don’t move to zero)
-    # ax.spines["bottom"].set_position(("outward", 5))
-    # ax.spines["left"].set_position(("outward", 5))
-
-    # --- Add arrowheads at the end of each axis ---
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
     arrowprops = dict(arrowstyle="-|>", color="black", lw=1.5)
@@ -708,7 +783,7 @@ def plot_lead_time_psd(
         annotation_clip=False,
     )
     plt.tight_layout()
-    lead_time_name = det_s2s.lead_time[lead_time_idx]
+    lead_time_name = det_s2s.lead_time[lead_time_idx + 1]
     fig.savefig(os.path.join(figs_dir, f"psds/psd_{lead_time_name}.png"), dpi=300)
 
 
@@ -901,14 +976,29 @@ def make_plots(
 
     # plots, plot and plots #
 
-    # plot gifs for each lead time (and each event)
-    plot_lead_time_agg_raw(
-        climatology,
-        det_s2s,
-        cpc,
-        figs_dir,
-    )
-    print("agg maps raw saved")
+    # # plot gifs for each lead time (and each event)
+    # plot_lead_time_agg_raw(
+    #     climatology,
+    #     det_s2s,
+    #     cpc,
+    #     figs_dir,
+    # )
+    # print("agg maps raw saved")
+
+    # # aggs of all
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_agg(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         num_idx,
+    #         figs_dir,
+    #     )
+    # print("maps complete saved")
 
     # # plot gifs for each lead time (and each event)
     # plot_lead_time_gifs_raw(
@@ -934,18 +1024,18 @@ def make_plots(
     # print("maps complete saved")
 
     # plot timeseries for each lead time (and each event)
-    for lead_time_idx in range(3):
-        plot_lead_time_timeseries(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("timeseries saved")
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_timeseries(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("timeseries saved")
 
     # # plot distribution for each lead time
     # for lead_time_idx in range(3):
@@ -961,19 +1051,19 @@ def make_plots(
     #     )
     # print("distributions saved")
 
-    # # plot psds for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_psd(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("psds saved")
+    # plot psds for each lead time
+    for lead_time_idx in range(3):
+        plot_lead_time_psd(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("psds saved")
 
     # # plot rank histogram for each lead time
     # for lead_time_idx in range(3):
@@ -1037,7 +1127,7 @@ def main():
     cpc_path = os.path.join(test_data_dir, "cpc.h5")
 
     # ensemble member for snapshots
-    num_idx = 0
+    num_idx = 3
 
     # main calls
     make_plots(

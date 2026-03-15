@@ -1,36 +1,40 @@
 import numpy as np
 
-from utils import get_spatial_lengths, normalize_data
+from utils import normalize_data
 
 
 def _get_2d_spectrum_info(data, x_length, y_length):
-    # Get spatial dimensions
     _, Ny, Nx = data.shape
 
-    # Get radial wavenumber coordinate (from cartesian to polar coordinates)
-    kx = np.fft.fftfreq(Nx, d=x_length / Nx)
-    ky = np.fft.fftfreq(Ny, d=y_length / Ny)
+    # Multiply by 2*pi to match your k = 2*pi/lambda notation
+    kx = 2 * np.pi * np.fft.fftfreq(Nx, d=x_length / Nx)
+    ky = 2 * np.pi * np.fft.fftfreq(Ny, d=y_length / Ny)
 
-    # Compute 2D Fourier Transform
     fft_data = np.fft.fft2(data, axes=(1, 2))
 
     return (Ny, Nx), (kx, ky), fft_data
 
 
 def low_pass_filter(data, data_lengths, ref_data, ref_lengths):
-    # extract the shape of the grid and data
     original_shape = data.shape
-    extra_dims = original_shape[:-3]  # dimensions before time, lat, lon
+    extra_dims = original_shape[:-3]
     print("extra dims:", extra_dims)
 
-    # prepare the output array
     new_data = np.zeros(data.shape, dtype=data.dtype)
 
-    # iterate over all extra dimensions
+    # Calculate Nyquist limit directly (k = pi / dx)
+    # Assuming ref_lengths are (x_length, y_length) and ref_data has shape (..., time, lat, lon)
+    _, ref_Ny, ref_Nx = ref_data.shape[-3:]
+    dx_ref = ref_lengths[0] / ref_Nx
+    dy_ref = ref_lengths[1] / ref_Ny
+
+    # Strict radial Nyquist cutoff
+    cutoff_x = np.pi / dx_ref
+    cutoff_y = np.pi / dy_ref
+    cutoff = min(cutoff_x, cutoff_y)
+    print("Strict Nyquist cutoff (k):", cutoff)
+
     for idx in np.ndindex(*extra_dims):
-        k, _ = get_1dpsd(ref_data[idx], *ref_lengths)
-        cutoff = np.max(k)
-        print("cutoff:", cutoff)
         new_data[idx] = radial_low_pass_filter(data[idx], cutoff, *data_lengths)
 
     return new_data

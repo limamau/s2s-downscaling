@@ -182,14 +182,14 @@ def plot_lead_time_timeseries(
 
 def plot_pre_processing(nearest, lowpass, cpc):
     # plot maps
-    lead_time_idx = 1
+    lead_time_idx = 3
     plot_time = 14
     arrays = (
         nearest.precip[lead_time_idx, plot_time],
         lowpass.precip[lead_time_idx, plot_time],
     )
     titles = (
-        "a) nearest interpolation",
+        "a) NN interpolation",
         "b) low-pass filter",
     )
     extent = cpc.get_extent()
@@ -290,7 +290,7 @@ def main():
 
     # extra configurations
     plot_time_idx = 6
-    lead_time_idx = [0, 1, 2]
+    lead_time_idx = [0, 1, 2, 3]
     number_idx1 = 25
     number_idx2 = 30
 
