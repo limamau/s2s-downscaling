@@ -22,18 +22,18 @@ from utils import get_cdf, get_pdf
 EVENT_LENGTH = 8
 NUMBER_OF_EVENTS = 2
 MODEL_COLOR_DICT = {
-    "IFS det.": "C0",
-    "IFS ens.": "C1",
-    "Diff. det.": "C0",
-    "Diff. ens.": "C1",
+    "IFS det. + NN": "C0",
+    "IFS ens. + NN": "C1",
+    "DM det.": "C0",
+    "DM ens.": "C1",
     "WRF": "C2",
     "CombiPrecip": "C4",
 }
 MODEL_LINESTYLE = {
-    "IFS det.": "--",
-    "IFS ens.": "--",
-    "Diff. det.": "-",
-    "Diff. ens.": "-",
+    "IFS det. + NN": "--",
+    "IFS ens. + NN": "--",
+    "DM det.": "-",
+    "DM ens.": "-",
     "WRF": "-",
     "CombiPrecip": "-",
 }
@@ -120,30 +120,30 @@ def plot_left_tale(
     ax.plot(
         bins_mid,
         det_s2s_pdf,
-        label="IFS det.",
-        color=MODEL_COLOR_DICT["IFS det."],
-        linestyle=MODEL_LINESTYLE["IFS det."],
+        label="IFS det. + NN",
+        color=MODEL_COLOR_DICT["IFS det. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS det. + NN"],
     )
     ax.plot(
         bins_mid,
         ens_s2s_pdf,
-        label="IFS ens.",
-        color=MODEL_COLOR_DICT["IFS ens."],
-        linestyle=MODEL_LINESTYLE["IFS ens."],
+        label="IFS ens. + NN",
+        color=MODEL_COLOR_DICT["IFS ens. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS ens. + NN"],
     )
     ax.plot(
         bins_mid,
         det_diff_pdf,
-        label="Diff. det.",
-        color=MODEL_COLOR_DICT["Diff. det."],
-        linestyle=MODEL_LINESTYLE["Diff. det."],
+        label="DM det.",
+        color=MODEL_COLOR_DICT["DM det."],
+        linestyle=MODEL_LINESTYLE["DM det."],
     )
     ax.plot(
         bins_mid,
         ens_diff_pdf,
-        label="Diff. ens.",
-        color=MODEL_COLOR_DICT["Diff. ens."],
-        linestyle=MODEL_LINESTYLE["Diff. ens."],
+        label="DM ens.",
+        color=MODEL_COLOR_DICT["DM ens."],
+        linestyle=MODEL_LINESTYLE["DM ens."],
     )
     ax.plot(
         bins_mid,
@@ -202,30 +202,30 @@ def plot_right_tale(
     ax.plot(
         bins_range,
         det_s2s_cdf,
-        label="IFS det.",
-        color=MODEL_COLOR_DICT["IFS det."],
-        linestyle=MODEL_LINESTYLE["IFS det."],
+        label="IFS det. + NN",
+        color=MODEL_COLOR_DICT["IFS det. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS det. + NN"],
     )
     ax.plot(
         bins_range,
         ens_s2s_cdf,
-        label="IFS ens.",
-        color=MODEL_COLOR_DICT["IFS ens."],
-        linestyle=MODEL_LINESTYLE["IFS ens."],
+        label="IFS ens. + NN",
+        color=MODEL_COLOR_DICT["IFS ens. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS ens. + NN"],
     )
     ax.plot(
         bins_range,
         det_diff_cdf,
-        label="Diff. det.",
-        color=MODEL_COLOR_DICT["Diff. det."],
-        linestyle=MODEL_LINESTYLE["Diff. det."],
+        label="DM det.",
+        color=MODEL_COLOR_DICT["DM det."],
+        linestyle=MODEL_LINESTYLE["DM det."],
     )
     ax.plot(
         bins_range,
         ens_diff_cdf,
-        label="Diff. ens.",
-        color=MODEL_COLOR_DICT["Diff. ens."],
-        linestyle=MODEL_LINESTYLE["Diff. ens."],
+        label="DM ens.",
+        color=MODEL_COLOR_DICT["DM ens."],
+        linestyle=MODEL_LINESTYLE["DM ens."],
     )
     ax.plot(
         bins_range,
@@ -337,10 +337,10 @@ def plot_lead_time_agg_raw(climatology, det_s2s, cpc, figs_dir):
         titles = (
             "a) CombiPrecip",
             "b) Climatology",
-            "c) IFS det. (0-day)",
-            "d) IFS det. (1-week)",
-            "e) IFS det. (2-week)",
-            "f) IFS det. (3-week)",
+            "c) IFS det. + NN (0-day)",
+            "d) IFS det. + NN (1-week)",
+            "e) IFS det. + NN (2-week)",
+            "f) IFS det. + NN (3-week)",
         )
         cpc_extent = cpc.get_extent()
         extents = (cpc_extent,) * 6
@@ -364,9 +364,9 @@ def plot_lead_time_gifs_raw(det_s2s, cpc, figs_dir):
         )
         titles = (
             "a) CombiPrecip",
-            "a) IFS det. (1-week)",
-            "b) IFS det. (2-week)",
-            "c) IFS det. (3-week)",
+            "a) IFS det. + NN (1-week)",
+            "b) IFS det. + NN (2-week)",
+            "c) IFS det. + NN (3-week)",
         )
         cpc_extent = cpc.get_extent()
         extents = (cpc_extent,) * 6
@@ -419,10 +419,10 @@ def plot_lead_time_map_complete(
             cpc.precip[time_idx],
         )
         titles = (
-            "a) IFS det.",
-            "b) IFS ens.",
-            "c) Diff. det.",
-            "d) Diff. ens.",
+            "a) IFS det. + NN",
+            "b) IFS ens. + NN",
+            "c) DM det.",
+            "d) DM ens.",
             "e) WRF",
             "f) CombiPrecip",
         )
@@ -517,8 +517,8 @@ def plot_lead_time_agg(
         titles = (
             "a) IFS det. + NN",
             f"b) IFS ens. + NN (member {best_ens_idx + 1}/{num_members_ens_s2s})",
-            f"c) Diff. det. (member {best_det_diff_idx + 1}/{num_members_det_diff})",
-            f"d) Diff. ens. (member {best_ens_diff_idx + 1}/{num_members_ens_diff})",
+            f"c) DM det. (member {best_det_diff_idx + 1}/{num_members_det_diff})",
+            f"d) DM ens. (member {best_ens_diff_idx + 1}/{num_members_ens_diff})",
             f"e) WRF (member {best_wrf_idx + 1}/{num_members_wrf})",
             "f) CombiPrecip",
         )
@@ -601,9 +601,9 @@ def plot_lead_time_timeseries(
         ax.plot(
             dates[idxs],
             det_s2s_timeseries[idxs],
-            label="IFS det.",
-            color=MODEL_COLOR_DICT["IFS det."],
-            linestyle=MODEL_LINESTYLE["IFS det."],
+            label="IFS det. + NN",
+            color=MODEL_COLOR_DICT["IFS det. + NN"],
+            linestyle=MODEL_LINESTYLE["IFS det. + NN"],
             linewidth=2,
         )
 
@@ -612,27 +612,27 @@ def plot_lead_time_timeseries(
             dates[idxs],
             ens_s2s_lower_bound[idxs],
             ens_s2s_upper_bound[idxs],
-            color=MODEL_COLOR_DICT["IFS ens."],
-            label="IFS ens.",
+            color=MODEL_COLOR_DICT["IFS ens. + NN"],
+            label="IFS ens. + NN",
             facecolor="none",
             hatch="//",
-            edgecolor=MODEL_COLOR_DICT["IFS ens."],
+            edgecolor=MODEL_COLOR_DICT["IFS ens. + NN"],
         )
         ax.fill_between(
             dates[idxs],
             det_diff_lower_bound[idxs],
             det_diff_upper_bound[idxs],
-            color=MODEL_COLOR_DICT["Diff. det."],
+            color=MODEL_COLOR_DICT["DM det."],
             alpha=0.5,
-            label="Diff. det.",
+            label="DM det.",
         )
         ax.fill_between(
             dates[idxs],
             ens_diff_lower_bound[idxs],
             ens_diff_upper_bound[idxs],
-            color=MODEL_COLOR_DICT["Diff. ens."],
+            color=MODEL_COLOR_DICT["DM ens."],
             alpha=0.5,
-            label="Diff. ens.",
+            label="DM ens.",
         )
         ax.fill_between(
             dates[idxs],
@@ -709,30 +709,30 @@ def plot_lead_time_psd(
     ax.plot(
         wavelengths[mask],
         det_s2s_psd[mask][::-1],
-        label="IFS det.",
-        color=MODEL_COLOR_DICT["IFS det."],
-        linestyle=MODEL_LINESTYLE["IFS det."],
+        label="IFS det. + NN",
+        color=MODEL_COLOR_DICT["IFS det. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS det. + NN"],
     )
     ax.plot(
         wavelengths[mask],
         ens_s2s_psd[mask][::-1],
-        label="IFS ens.",
-        color=MODEL_COLOR_DICT["IFS ens."],
-        linestyle=MODEL_LINESTYLE["IFS ens."],
+        label="IFS ens. + NN",
+        color=MODEL_COLOR_DICT["IFS ens. + NN"],
+        linestyle=MODEL_LINESTYLE["IFS ens. + NN"],
     )
     ax.plot(
         wavelengths[mask],
         det_diff_psd[mask][::-1],
-        label="det. diff.",
-        color=MODEL_COLOR_DICT["Diff. det."],
-        linestyle=MODEL_LINESTYLE["Diff. det."],
+        label="DM det.",
+        color=MODEL_COLOR_DICT["DM det."],
+        linestyle=MODEL_LINESTYLE["DM det."],
     )
     ax.plot(
         wavelengths[mask],
         ens_diff_psd[mask][::-1],
-        label="ens. diff.",
-        color=MODEL_COLOR_DICT["Diff. ens."],
-        linestyle=MODEL_LINESTYLE["Diff. ens."],
+        label="DM ens.",
+        color=MODEL_COLOR_DICT["DM ens."],
+        linestyle=MODEL_LINESTYLE["DM ens."],
     )
     ax.plot(
         wavelengths[mask],
@@ -769,7 +769,7 @@ def plot_lead_time_psd(
     ax.annotate(
         "",
         xy=(xlim[1], ylim[0]),  # end of x-axis
-        xytext=(xlim[1] * 0.9, ylim[0]),  # start slightly before
+        xytext=(xlim[1] * 0.975, ylim[0]),  # start slightly before
         arrowprops=arrowprops,
         annotation_clip=False,
     )
@@ -796,47 +796,53 @@ def plot_rank_histogram(
     lead_time_idx,
     figs_dir,
 ):
-    ens_s2s_values = ens_s2s.precip[lead_time_idx]
-    det_diff_values = det_diff.precip[lead_time_idx]
-    ens_diff_values = ens_diff.precip[lead_time_idx]
-    wrf_values = wrf.precip[lead_time_idx]
-    cpc_values = cpc.precip
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
+        time_idxs = slice(EVENT_LENGTH * (event_idx - 1), EVENT_LENGTH * event_idx)
 
-    # calculate ranks
-    ens_s2s_ranks = rank_histogram(ens_s2s_values, cpc_values)
-    det_diff_ranks = rank_histogram(det_diff_values, cpc_values)
-    ens_diff_ranks = rank_histogram(ens_diff_values, cpc_values)
-    wrf_ranks = rank_histogram(wrf_values, cpc_values)
+        ens_s2s_values = ens_s2s.precip[lead_time_idx + 1, :, time_idxs]
+        det_diff_values = det_diff.precip[lead_time_idx, :, time_idxs]
+        ens_diff_values = ens_diff.precip[lead_time_idx, :, time_idxs]
+        wrf_values = wrf.precip[lead_time_idx, :, time_idxs]
+        cpc_values = cpc.precip[time_idxs]
 
-    # plot rank histograms
-    fig, ax = plt.subplots(2, 2, figsize=(8, 4), dpi=300)
-    ax[0, 0].hist(
-        ens_s2s_ranks,
-        color=MODEL_COLOR_DICT["IFS ens."],
-        histtype="step",
-        hatch="//",
-        density=True,
-    )
-    ax[0, 0].set_title("a) IFS ens.")
-    ax[0, 1].hist(det_diff_ranks, color=MODEL_COLOR_DICT["Diff. det."], density=True)
-    ax[0, 1].set_title("b) Diff. det.")
-    ax[1, 0].hist(ens_diff_ranks, color=MODEL_COLOR_DICT["Diff. ens."], density=True)
-    ax[1, 0].set_title("c) Diff. ens.")
-    ax[1, 1].hist(wrf_ranks, color=MODEL_COLOR_DICT["WRF"], density=True)
-    ax[1, 1].set_title("d) WRF")
+        # calculate ranks
+        ens_s2s_ranks = rank_histogram(ens_s2s_values, cpc_values)
+        det_diff_ranks = rank_histogram(det_diff_values, cpc_values)
+        ens_diff_ranks = rank_histogram(ens_diff_values, cpc_values)
+        wrf_ranks = rank_histogram(wrf_values, cpc_values)
 
-    # labels
-    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax[1, 0].set_xlabel("Rank")
-    ax[1, 1].set_xlabel("Rank")
-    ax[0, 0].set_ylabel("Frequency")
-    ax[1, 0].set_ylabel("Frequency")
+        # plot rank histograms
+        fig, ax = plt.subplots(2, 2, figsize=(8, 4), dpi=300)
+        ax[0, 0].hist(
+            ens_s2s_ranks,
+            color=MODEL_COLOR_DICT["IFS ens. + NN"],
+            histtype="step",
+            hatch="//",
+            density=True,
+        )
+        ax[0, 0].set_title("a) IFS ens. + NN")
+        ax[0, 1].hist(det_diff_ranks, color=MODEL_COLOR_DICT["DM det."], density=True)
+        ax[0, 1].set_title("b) DM det.")
+        ax[1, 0].hist(ens_diff_ranks, color=MODEL_COLOR_DICT["DM ens."], density=True)
+        ax[1, 0].set_title("c) DM ens.")
+        ax[1, 1].hist(wrf_ranks, color=MODEL_COLOR_DICT["WRF"], density=True)
+        ax[1, 1].set_title("d) WRF")
 
-    plt.tight_layout()
+        # labels
+        plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax[1, 0].set_xlabel("Rank")
+        ax[1, 1].set_xlabel("Rank")
+        ax[0, 0].set_ylabel("Frequency")
+        ax[1, 0].set_ylabel("Frequency")
 
-    # save
-    lead_time_name = ens_s2s.lead_time[lead_time_idx]
-    fig.savefig(os.path.join(figs_dir, f"ranks/rank_histograms_{lead_time_name}.png"))
+        # save
+        plt.tight_layout()
+        lead_time_name = ens_s2s.lead_time[lead_time_idx + 1]
+        fig.savefig(
+            os.path.join(
+                figs_dir, f"ranks/rank_histograms_{lead_time_name}_e{event_idx}.png"
+            )
+        )
 
 
 def get_av_fss(forecast, observations, threshold, num_neighbor):
@@ -858,89 +864,120 @@ def get_av_fss(forecast, observations, threshold, num_neighbor):
         return avfss / (len(members) * len(times) - discount)
 
 
-def plot_avFSS(
+def plot_avFSS_table(
     det_s2s,
     ens_s2s,
     det_diff,
     ens_diff,
     wrf,
     cpc,
-    lead_time_idx,
     figs_dir,
 ):
-    lead_time_name = det_s2s.lead_time[lead_time_idx]
-    print("avFSS -", lead_time_name)
-
-    # get values for lead time
-    det_s2s_values = np.expand_dims(det_s2s.precip[lead_time_idx], axis=0)
-    ens_s2s_values = ens_s2s.precip[lead_time_idx]
-    det_diff_values = det_diff.precip[lead_time_idx]
-    ens_diff_values = ens_diff.precip[lead_time_idx]
-    wrf_values = wrf.precip[lead_time_idx]
-    cpc_values = cpc.precip
 
     # define FSS parameters
     thresholds = [0.5, 1.0, 1.5, 2.0, 2.5]
-    num_neighbors = [15, 30, 45, 60]
+    num_neighbors = [15]  # , 30, 45, 60]
 
-    # arrays for model and parameters
-    det_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
-    ens_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
-    det_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
-    ens_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
-    wrf_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+    for event_idx in range(1, len(TIME_IDXS) // EVENT_LENGTH + 1):
+        time_slice = slice((event_idx - 1) * EVENT_LENGTH, event_idx * EVENT_LENGTH)
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(8, 6))
+        axes = axes.flatten()
 
-    # get avFSS arrays
-    for i_thr, thr in enumerate(thresholds):
-        print("threshold:", thr)
-        for i_num, num in enumerate(num_neighbors):
-            det_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
-                det_s2s_values, cpc_values, thr, num
-            )
-            ens_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
-                ens_s2s_values, cpc_values, thr, num
-            )
-            det_diff_avfss_arr[i_thr, i_num] = get_av_fss(
-                det_diff_values, cpc_values, thr, num
-            )
-            ens_diff_avfss_arr[i_thr, i_num] = get_av_fss(
-                ens_diff_values, cpc_values, thr, num
-            )
-            wrf_avfss_arr[i_thr, i_num] = get_av_fss(wrf_values, cpc_values, thr, num)
+        for lead_time_idx in range(4):
+            lead_time_name = det_s2s.lead_time[lead_time_idx]
+            print("avFSS -", lead_time_name)
 
-    model_labels = ["IFS det.", "IFS ens.", "Diff. det.", "Diff. ens.", "WRF"]
-    model_arrs = [
-        det_s2s_avfss_arr,
-        ens_s2s_avfss_arr,
-        det_diff_avfss_arr,
-        ens_diff_avfss_arr,
-        wrf_avfss_arr,
-    ]
-
-    # plot avFSS vs. thresholds for each num_neighbors
-    for i_num, num in enumerate(num_neighbors):
-        fig, ax = plt.subplots(figsize=(4, 3))
-        for model_label, model_arr in zip(model_labels, model_arrs):
-            ax.plot(
-                thresholds,
-                model_arr[:, i_num],
-                label=model_label,
-                color=MODEL_COLOR_DICT[model_label],
-                linestyle=MODEL_LINESTYLE[model_label],
+            # get values for lead time
+            det_s2s_values = np.expand_dims(
+                det_s2s.precip[lead_time_idx, time_slice], axis=0
             )
-        # add legend and save
-        ax.set_xlabel("Threshold (mm/hr)")
-        ax.set_xticks(thresholds)
-        ax.set_xlim(thresholds[0] - 0.05, thresholds[-1] + 0.05)
-        ax.set_ylabel("avFSS")
-        ax.set_yticks(np.arange(0.0, 0.4, 0.1))
-        ax.set_ylim(0.0, 0.25)
-        _make_arrows(ax, thresholds[0] - 0.05, 1)
-        ax.spines["left"].set_position(("data", thresholds[0] - 0.05))
-        plt.legend(loc="upper right")
+            ens_s2s_values = ens_s2s.precip[lead_time_idx, :, time_slice]
+            if lead_time_idx > 0:
+                det_diff_values = det_diff.precip[lead_time_idx - 1, :, time_slice]
+                ens_diff_values = ens_diff.precip[lead_time_idx - 1, :, time_slice]
+                wrf_values = wrf.precip[lead_time_idx - 1, :, time_slice]
+            cpc_values = cpc.precip[time_slice]
+
+            # arrays for model and parameters
+            det_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+            ens_s2s_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+            if lead_time_idx > 0:
+                det_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+                ens_diff_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+                wrf_avfss_arr = np.zeros((len(thresholds), len(num_neighbors)))
+
+            # get avFSS arrays
+            for i_thr, thr in enumerate(thresholds):
+                print("threshold:", thr)
+                for i_num, num in enumerate(num_neighbors):
+                    det_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
+                        det_s2s_values, cpc_values, thr, num
+                    )
+                    ens_s2s_avfss_arr[i_thr, i_num] = get_av_fss(
+                        ens_s2s_values, cpc_values, thr, num
+                    )
+                    if lead_time_idx > 0:
+                        det_diff_avfss_arr[i_thr, i_num] = get_av_fss(
+                            det_diff_values, cpc_values, thr, num
+                        )
+                        ens_diff_avfss_arr[i_thr, i_num] = get_av_fss(
+                            ens_diff_values, cpc_values, thr, num
+                        )
+                        wrf_avfss_arr[i_thr, i_num] = get_av_fss(
+                            wrf_values, cpc_values, thr, num
+                        )
+
+            if lead_time_idx == 0:
+                model_arrs = [det_s2s_avfss_arr, ens_s2s_avfss_arr]
+                model_labels = ["IFS det. + NN", "IFS ens. + NN"]
+            else:
+                model_arrs = [
+                    det_s2s_avfss_arr,
+                    ens_s2s_avfss_arr,
+                    det_diff_avfss_arr,
+                    ens_diff_avfss_arr,
+                    wrf_avfss_arr,
+                ]
+                model_labels = [
+                    "IFS det. + NN",
+                    "IFS ens. + NN",
+                    "DM det.",
+                    "DM ens.",
+                    "WRF",
+                ]
+
+            # plot avFSS vs. thresholds for each num_neighbors
+            for i_num, num in enumerate(num_neighbors):
+                for model_label, model_arr in zip(model_labels, model_arrs):
+                    axes[lead_time_idx].plot(
+                        thresholds,
+                        model_arr[:, i_num],
+                        label=model_label,
+                        color=MODEL_COLOR_DICT[model_label],
+                        linestyle=MODEL_LINESTYLE[model_label],
+                    )
+                # add legend and save
+                axes[lead_time_idx].set_xlim(
+                    thresholds[0] - 0.05, thresholds[-1] + 0.05
+                )
+                if lead_time_idx > 1:
+                    axes[lead_time_idx].set_xlabel("Threshold (mm/hr)")
+                    axes[lead_time_idx].set_xticks(thresholds)
+                if lead_time_idx % 2 == 0:
+                    axes[lead_time_idx].set_ylabel("avFSS")
+                if lead_time_idx == 1:
+                    axes[lead_time_idx].legend(loc="upper right")
+                axes[lead_time_idx].set_title(lead_time_name)
+                axes[lead_time_idx].spines["left"].set_position(
+                    ("data", thresholds[0] - 0.05)
+                )
+                axes[lead_time_idx].set_yticks(np.arange(0.0, 0.3, 0.05))
+                axes[lead_time_idx].set_ylim(0.0, 0.25)
+                _make_arrows(axes[lead_time_idx], thresholds[0] - 0.05, 1)
+
         plt.tight_layout()
         fig.savefig(
-            os.path.join(figs_dir, f"fss/fss_{lead_time_name}_num{num}.png"),
+            os.path.join(figs_dir, f"fss/fss_num{num}_e{event_idx}.png"),
             dpi=300,
         )
         plt.close()
@@ -976,31 +1013,31 @@ def make_plots(
 
     # plots, plot and plots #
 
-    # # plot gifs for each lead time (and each event)
-    # plot_lead_time_agg_raw(
-    #     climatology,
-    #     det_s2s,
-    #     cpc,
-    #     figs_dir,
-    # )
-    # print("agg maps raw saved")
+    # plot maps
+    plot_lead_time_agg_raw(
+        climatology,
+        det_s2s,
+        cpc,
+        figs_dir,
+    )
+    print("agg maps raw saved")
 
-    # # aggs of all
-    # for lead_time_idx in range(3):
-    #     plot_lead_time_agg(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         num_idx,
-    #         figs_dir,
-    #     )
-    # print("maps complete saved")
+    # aggs of all
+    for lead_time_idx in range(3):
+        plot_lead_time_agg(
+            det_s2s,
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            num_idx,
+            figs_dir,
+        )
+    print("maps complete saved")
 
-    # # plot gifs for each lead time (and each event)
+    # # plot gifs for each lead time
     # plot_lead_time_gifs_raw(
     #     det_s2s,
     #     cpc,
@@ -1008,7 +1045,7 @@ def make_plots(
     # )
     # print("gif maps raw saved")
 
-    # # plot gifs for each lead time (and each event)
+    # # plot gifs for each lead time
     # for lead_time_idx in range(3):
     #     plot_lead_time_map_complete(
     #         det_s2s,
@@ -1065,32 +1102,30 @@ def make_plots(
         )
     print("psds saved")
 
-    # # plot rank histogram for each lead time
-    # for lead_time_idx in range(3):
-    #     plot_rank_histogram(
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("rank histograms saved")
+    # plot rank histogram for each lead time
+    for lead_time_idx in range(3):
+        plot_rank_histogram(
+            ens_s2s,
+            det_diff,
+            ens_diff,
+            wrf,
+            cpc,
+            lead_time_idx,
+            figs_dir,
+        )
+    print("rank histograms saved")
 
-    # # plot avFSS for lead time
-    # for lead_time_idx in range(3):
-    #     plot_avFSS(
-    #         det_s2s,
-    #         ens_s2s,
-    #         det_diff,
-    #         ens_diff,
-    #         wrf,
-    #         cpc,
-    #         lead_time_idx,
-    #         figs_dir,
-    #     )
-    # print("avFSS saved")
+    # plot avFSS for lead time
+    plot_avFSS_table(
+        det_s2s,
+        ens_s2s,
+        det_diff,
+        ens_diff,
+        wrf,
+        cpc,
+        figs_dir,
+    )
+    print("avFSS saved")
 
 
 def main():

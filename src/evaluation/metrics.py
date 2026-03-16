@@ -207,6 +207,29 @@ def wasserstein_distance(obs, sim):
     return wass_dist(obs.flatten(), sim.flatten())
 
 
+def ssr(obs, sim, ensemble_axis=0):
+    """
+    Calculates the Spread-Skill Ratio (SSR) for an ensemble forecast.
+
+    Parameters:
+    - obs: ndarray, the ground truth (e.g., CombiPrecip).
+    - sim: ndarray, the ensemble predictions.
+    - ensemble_axis: int, the axis corresponding to the ensemble members.
+
+    Returns:
+    - ssr (float): the Spread-Skill Ratio.
+    """
+    N = sim.shape[ensemble_axis]
+    ensemble_mean = np.mean(sim, axis=ensemble_axis)
+    ensemble_variance = np.var(sim, axis=ensemble_axis)
+    mean_spread = np.sqrt(np.mean(ensemble_variance))
+    mse = np.mean((ensemble_mean - obs) ** 2)
+    rmse = np.sqrt(mse)
+    adjustment_factor = np.sqrt((N + 1) / (N - 1))
+    fair_ssr = (mean_spread * adjustment_factor) / rmse
+    return fair_ssr
+
+
 # the following was copied from pysteps in
 # https://github.com/pySTEPS/pysteps/blob/edd9be5c8124613082b359c451136b7d4e452815/pysteps/verification/spatialscores.py#L516
 # because I couldn't add it as a package due to some weird error

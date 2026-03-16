@@ -8,7 +8,10 @@ from data.surface_data import (
     ForecastSurfaceData,
     SurfaceData,
 )
-from evaluation.metrics import crps, psd_distance, wasserstein_distance
+from evaluation.metrics import (
+    crps,
+    ssr,
+)
 
 EVENT_TIME_LENGTH = 8
 NUM_EVENTS = 2
@@ -63,6 +66,50 @@ def print_metric(
     print()
 
 
+def print_spread_metric(
+    s2s_ens,
+    diff_det,
+    diff_ens,
+    wrf,
+    cpc,
+    name,
+    metric,
+    *args,
+):
+    print(f"Metric: {name}")
+    for i, lead_time in enumerate(s2s_ens.lead_time):
+        print(f"Lead time: {lead_time}", flush=True)
+        for e in range(NUM_EVENTS):
+            print(f"  {3 * e + 2018} event:")
+            time_idxs = slice(e * EVENT_TIME_LENGTH, (e + 1) * EVENT_TIME_LENGTH)
+            cpc_arr = cpc.precip[time_idxs]
+
+            # Original S2S ensemble
+            s2s_ens_arr = s2s_ens.precip[i, :, time_idxs]
+            s2s_ens_val = np.round(metric(cpc_arr, s2s_ens_arr, *args), 2)
+            print(f"    S2S-ens: {s2s_ens_val}", flush=True)
+
+            # Skip the 0-day lead time for the downscaled models
+            if i == 0:
+                continue
+
+            # Diffusion deterministic (generates an ensemble from 1 condition)
+            diff_det_arr = diff_det.precip[i - 1, :, time_idxs]
+            diff_det_val = np.round(metric(cpc_arr, diff_det_arr, *args), 2)
+            print(f"    diff-det: {diff_det_val}", flush=True)
+
+            # Diffusion ensemble
+            diff_ens_arr = diff_ens.precip[i - 1, :, time_idxs]
+            diff_ens_val = np.round(metric(cpc_arr, diff_ens_arr, *args), 2)
+            print(f"    diff-ens: {diff_ens_val}", flush=True)
+
+            # WRF ensemble
+            wrf_arr = wrf.precip[i - 1, :, time_idxs]
+            wrf_val = np.round(metric(cpc_arr, wrf_arr, *args), 2)
+            print(f"    WRF: {wrf_val}", flush=True)
+    print()
+
+
 def evaluate(climatology, s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
     # crps
     print_metric(
@@ -77,32 +124,43 @@ def evaluate(climatology, s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
         crps,
     )
 
-    # wasserstein_distance
-    print_metric(
-        climatology,
-        s2s_det,
-        s2s_ens,
-        diff_det,
-        diff_ens,
-        wrf,
-        cpc,
-        "Wasserstein distance",
-        wasserstein_distance,
-    )
+    # # wasserstein_distance
+    # print_metric(
+    #     climatology,
+    #     s2s_det,
+    #     s2s_ens,
+    #     diff_det,
+    #     diff_ens,
+    #     wrf,
+    #     cpc,
+    #     "Wasserstein distance",
+    #     wasserstein_distance,
+    # )
 
-    # psd distance
-    spatial_lengths = s2s_det.get_spatial_lengths()
-    print_metric(
-        climatology,
-        s2s_det,
+    # # psd distance
+    # spatial_lengths = s2s_det.get_spatial_lengths()
+    # print_metric(
+    #     climatology,
+    #     s2s_det,
+    #     s2s_ens,
+    #     diff_det,
+    #     diff_ens,
+    #     wrf,
+    #     cpc,
+    #     "PSD distance",
+    #     psd_distance,
+    #     *spatial_lengths,
+    # )
+
+    # spread-skill ratio
+    print_spread_metric(
         s2s_ens,
         diff_det,
         diff_ens,
         wrf,
         cpc,
-        "PSD distance",
-        psd_distance,
-        *spatial_lengths,
+        "Spread-skill ratio",
+        ssr,
     )
 
 
