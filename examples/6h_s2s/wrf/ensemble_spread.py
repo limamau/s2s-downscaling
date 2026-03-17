@@ -55,36 +55,52 @@ def run_spread_analysis(ens_s2s, ordered_idxs_choice):
     for year, precip_mean in zip(
         ("2018", "2021"), (precip_2018_mean, precip_2021_mean)
     ):
-        for lead_time_idx, lead_time_name in enumerate(ens_s2s.lead_time):
+        for lead_time_idx in range(1, 4):
+            lead_time_name = ens_s2s.lead_time[lead_time_idx]
             order = np.argsort(precip_mean[lead_time_idx])
             for i in ordered_idxs_choice:
                 choices_dict[year][lead_time_name].append(order[i])
 
-    # plot of the ordered ensemble members by the mean precipitation
-    # for each year and lead time
-    text_y_ref_dict = {"2018": 0.5, "2021": 0.36}
-    for year, precip_mean in zip(
-        ("2018", "2021"), (precip_2018_mean, precip_2021_mean)
-    ):
-        for lead_time_idx, lead_time_name in enumerate(ens_s2s.lead_time):
-            order = np.argsort(precip_mean[lead_time_idx])
-            plt.plot(
-                precip_mean[lead_time_idx, order],
-                label=str(year) + ", " + lead_time_name,
-            )
-            for enum, choice in enumerate(choices_dict[year][lead_time_name]):
-                plt.axvline(np.where(order == choice)[0], color="black", linestyle="--")
-                plt.text(
-                    np.where(order == choice)[0] + 1,
-                    text_y_ref_dict[year],
-                    f"member {enum + 1}",
-                    color="black",
+        # plot of the ordered ensemble members by the mean precipitation
+        # for each year and lead time — combined into one figure with two subplots
+        text_y_ref_dict = {"2018": 0.5, "2021": 0.36}
+
+        years = ("2018", "2021")
+        fig, axes = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
+
+        for ax, (year, precip_mean) in zip(
+            axes, zip(years, (precip_2018_mean, precip_2021_mean))
+        ):
+            for lead_time_idx in range(1, 4):
+                lead_time_name = ens_s2s.lead_time[lead_time_idx]
+                order = np.argsort(precip_mean[lead_time_idx])
+                ax.plot(
+                    precip_mean[lead_time_idx, order],
+                    label=str(year) + ", " + lead_time_name,
                 )
-        plt.xlabel("Ordered ensemble members")
-        plt.ylabel("Mean precipitation (mm/h)")
-        plt.legend()
-        plt.savefig(os.path.join(figs_dir, f"ordered_spread_{year}.png"))
-        plt.close()
+                for enum, choice in enumerate(choices_dict[year][lead_time_name]):
+                    idx_arr = np.where(order == choice)[0]
+                    if idx_arr.size > 0:
+                        idx = int(idx_arr[0])
+                        ax.axvline(idx, color="black", linestyle="--")
+                        ax.text(
+                            idx + 1,
+                            text_y_ref_dict[year],
+                            f"member {enum + 1}",
+                            color="black",
+                        )
+
+            ax.set_xlabel("Ordered ensemble members")
+            ax.legend(loc="best")
+
+        axes[1].tick_params(
+            axis="y", which="both", left=False, right=False, labelleft=False
+        )
+        axes[0].set_ylabel("Mean precipitation (mm/h)")
+        fig.tight_layout()
+        out_path = os.path.join(figs_dir, "ordered_spread.png")
+        fig.savefig(out_path)
+        plt.close(fig)
 
     # print choices
     print("choices:")
@@ -100,7 +116,8 @@ def run_spread_analysis(ens_s2s, ordered_idxs_choice):
     for year, precip_mean in zip(
         ("2018", "2021"), (precip_2018_mean, precip_2021_mean)
     ):
-        for lead_time_idx, lead_time_name in enumerate(ens_s2s.lead_time):
+        for lead_time_idx in range(1, 4):
+            lead_time_name = ens_s2s.lead_time[lead_time_idx]
             print("year:", year, "lead time:", lead_time_name)
             for choice in choices_dict[year][lead_time_name]:
                 print(np.mean(precip_mean[lead_time_idx, choice]))
