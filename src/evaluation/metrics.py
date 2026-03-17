@@ -65,10 +65,11 @@ def crps(obs, sim):
     # Instead of creating the full diff array, use broadcasting and sum
     n = sim.shape[0]
     term2 = 0
-    for i in range(n):
-        for j in range(i + 1, n):
-            term2 += np.abs(sim[i] - sim[j])
-    term2 = term2 * 2 / (n * n)  # since we only sum i < j, multiply by 2
+    if n > 1:
+        for i in range(n):
+            for j in range(i + 1, n):
+                term2 += np.abs(sim[i] - sim[j])
+        term2 = term2 * 2 / (n * (n - 1))  # since we only sum i < j, multiply by 2
     crps_field = term1 - 0.5 * term2
 
     return np.mean(crps_field)
