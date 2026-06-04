@@ -10,7 +10,9 @@ from data.surface_data import (
 )
 from evaluation.metrics import (
     crps,
+    psd_distance,
     ssr,
+    wasserstein_distance,
 )
 
 EVENT_TIME_LENGTH = 8
@@ -111,6 +113,28 @@ def print_spread_metric(
 
 
 def evaluate(climatology, s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
+    # psd distance
+    spatial_lengths = s2s_det.get_spatial_lengths()
+    print_metric(
+        climatology,
+        s2s_det,
+        s2s_ens,
+        diff_det,
+        diff_ens,
+        wrf,
+        cpc,
+        "PSD distance",
+        psd_distance,
+        *spatial_lengths,
+    )
+
+    # 0.1mm/h trim
+    all_datasets = [climatology, s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc]
+    for dataset in all_datasets:
+        dataset.precip = np.where(
+            (dataset.precip >= 0) & (dataset.precip < 0.1), 0.0, dataset.precip
+        )
+
     # crps
     print_metric(
         climatology,
@@ -124,33 +148,18 @@ def evaluate(climatology, s2s_det, s2s_ens, diff_det, diff_ens, wrf, cpc):
         crps,
     )
 
-    # # wasserstein_distance
-    # print_metric(
-    #     climatology,
-    #     s2s_det,
-    #     s2s_ens,
-    #     diff_det,
-    #     diff_ens,
-    #     wrf,
-    #     cpc,
-    #     "Wasserstein distance",
-    #     wasserstein_distance,
-    # )
-
-    # # psd distance
-    # spatial_lengths = s2s_det.get_spatial_lengths()
-    # print_metric(
-    #     climatology,
-    #     s2s_det,
-    #     s2s_ens,
-    #     diff_det,
-    #     diff_ens,
-    #     wrf,
-    #     cpc,
-    #     "PSD distance",
-    #     psd_distance,
-    #     *spatial_lengths,
-    # )
+    # wasserstein_distance
+    print_metric(
+        climatology,
+        s2s_det,
+        s2s_ens,
+        diff_det,
+        diff_ens,
+        wrf,
+        cpc,
+        "Wasserstein distance",
+        wasserstein_distance,
+    )
 
     # spread-skill ratio
     print_spread_metric(

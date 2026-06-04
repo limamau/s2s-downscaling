@@ -1013,29 +1013,29 @@ def make_plots(
 
     # plots, plot and plots #
 
-    # plot maps
-    plot_lead_time_agg_raw(
-        climatology,
-        det_s2s,
-        cpc,
-        figs_dir,
-    )
-    print("agg maps raw saved")
+    # # plot maps
+    # plot_lead_time_agg_raw(
+    #     climatology,
+    #     det_s2s,
+    #     cpc,
+    #     figs_dir,
+    # )
+    # print("agg maps raw saved")
 
-    # aggs of all
-    for lead_time_idx in range(3):
-        plot_lead_time_agg(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            num_idx,
-            figs_dir,
-        )
-    print("maps complete saved")
+    # # aggs of all
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_agg(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         num_idx,
+    #         figs_dir,
+    #     )
+    # print("maps complete saved")
 
     # # plot gifs for each lead time
     # plot_lead_time_gifs_raw(
@@ -1088,32 +1088,39 @@ def make_plots(
     #     )
     # print("distributions saved")
 
-    # plot psds for each lead time
-    for lead_time_idx in range(3):
-        plot_lead_time_psd(
-            det_s2s,
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
-        )
-    print("psds saved")
+    # # plot psds for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_lead_time_psd(
+    #         det_s2s,
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("psds saved")
 
-    # plot rank histogram for each lead time
-    for lead_time_idx in range(3):
-        plot_rank_histogram(
-            ens_s2s,
-            det_diff,
-            ens_diff,
-            wrf,
-            cpc,
-            lead_time_idx,
-            figs_dir,
+    # # plot rank histogram for each lead time
+    # for lead_time_idx in range(3):
+    #     plot_rank_histogram(
+    #         ens_s2s,
+    #         det_diff,
+    #         ens_diff,
+    #         wrf,
+    #         cpc,
+    #         lead_time_idx,
+    #         figs_dir,
+    #     )
+    # print("rank histograms saved")
+
+    # 0.1mm/h trim
+    all_datasets = [climatology, det_s2s, ens_s2s, det_diff, ens_diff, wrf, cpc]
+    for dataset in all_datasets:
+        dataset.precip = np.where(
+            (dataset.precip >= 0) & (dataset.precip < 0.1), 0.0, dataset.precip
         )
-    print("rank histograms saved")
 
     # plot avFSS for lead time
     plot_avFSS_table(

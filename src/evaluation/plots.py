@@ -2,6 +2,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import matplotlib.ticker as ticker
 import numpy as np
 
@@ -182,6 +183,9 @@ def _plot_3maps(
         )
         ax.add_feature(cfeature.BORDERS)
         ax.set_title(titles[i])
+        gl = ax.gridlines(draw_labels=False, linestyle="-", color="black", alpha=0.4)
+        gl.xlocator = mticker.FixedLocator([6, 8, 10])
+        gl.ylocator = mticker.FixedLocator([46, 47.5])
         ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
 
@@ -233,6 +237,9 @@ def _plot_4maps(
             vmax=vmax,
         )
         ax.add_feature(cfeature.BORDERS)
+        gl = ax.gridlines(draw_labels=False, linestyle="-", color="black", alpha=0.4)
+        gl.xlocator = mticker.FixedLocator([6, 8, 10])
+        gl.ylocator = mticker.FixedLocator([46, 47.5])
         ax.set_title(titles[i])
         ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
@@ -294,6 +301,9 @@ def _plot_6maps(
             vmax=vmax,
         )
         ax.add_feature(cfeature.BORDERS)
+        gl = ax.gridlines(draw_labels=False, linestyle="-", color="black", alpha=0.4)
+        gl.xlocator = mticker.FixedLocator([6, 8, 10])
+        gl.ylocator = mticker.FixedLocator([46, 47.5])
         ax.set_title(titles[i])
         ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
@@ -363,6 +373,7 @@ def _plot_9maps(
         )
         ax.add_feature(cfeature.BORDERS)
         ax.set_frame_on(False)
+        ax.gridlines(draw_labels=False, linestyle="-", color="gray", alpha=0.5)
         _write_label(ax, axis_labels[i])
 
     fig.subplots_adjust(
