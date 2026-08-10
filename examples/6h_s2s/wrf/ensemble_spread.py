@@ -99,12 +99,12 @@ def run_spread_analysis(ens_s2s, ordered_idxs_choice):
         axes[0].set_ylabel("Mean precipitation (mm/h)")
         fig.tight_layout()
         out_path = os.path.join(figs_dir, "ordered_spread.png")
-        fig.savefig(out_path)
+        fig.savefig(out_path, dpi=300)
         plt.close(fig)
 
     # print choices
     print("choices:")
-    for year in choices_dict.keys():
+    for year in choices_dict:
         print("  year:", year)
         for lead_time_name in choices_dict[year].keys():
             print("   lead time:", lead_time_name)
