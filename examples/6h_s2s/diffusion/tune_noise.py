@@ -37,13 +37,13 @@ def plot_psds(cpc, det, ens, lambda_star, psd_star, figs_dir):
         ax.plot(
             wavelengths[mask],
             det_psd[mask][::-1],
-            label="IFS det. + NN + low-pass",
+            label="IFS det. + NNI + low-pass",
             color="C0",
         )
         ax.plot(
             wavelengths[mask],
             ens_psd[mask][::-1],
-            label="IFS ens. + NN + low-pass",
+            label="IFS ens. + NNI + low-pass",
             color="C1",
         )
         ax.plot(

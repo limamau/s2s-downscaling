@@ -189,7 +189,7 @@ def plot_pre_processing(nearest, lowpass, cpc):
         lowpass.precip[lead_time_idx, plot_time],
     )
     titles = (
-        "a) NN interpolation",
+        "a) NNI interpolation",
         "b) low-pass filter",
     )
     extent = cpc.get_extent()

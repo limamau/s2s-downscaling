@@ -3,8 +3,8 @@ import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import matplotlib.ticker as ticker
 import numpy as np
+from matplotlib import ticker
 
 from engineering.spectrum import get_1dpsd
 from utils import get_cdf, get_pdf
@@ -21,10 +21,9 @@ CUSTOM_PRECIP_COLORS = [
     "#253494",  # Dark Blue
     "#54278F",  # Purple
     "#7A0177",  # Dark
-    "#C51B8A",  # Pink
 ]
 PRECIP_CMAP = mcolors.ListedColormap(CUSTOM_PRECIP_COLORS)
-CUSTOM_VALUES = [0, 0.25, 0.5, 1.0, 2.0, 2.5, 5, 7.5, 10, 15, 20]
+CUSTOM_VALUES = [0, 0.25, 0.5, 1.0, 2.0, 2.5, 5, 7.5, 10]
 CUSTOM_NORM = mcolors.BoundaryNorm(CUSTOM_VALUES, 11)
 CUSTOM_CURVE_COLORS = [
     "#0072B2",  # Blue
