@@ -124,7 +124,7 @@ def _plot_2maps(
         )
         ax.add_feature(cfeature.BORDERS)
         ax.set_title(titles[i])
-        ax.set_frame_on(False)
+        # ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
 
     fig.subplots_adjust(
@@ -186,7 +186,7 @@ def _plot_3maps(
         gl = ax.gridlines(draw_labels=False, linestyle="-", color="black", alpha=0.4)
         gl.xlocator = mticker.FixedLocator([6, 8, 10])
         gl.ylocator = mticker.FixedLocator([46, 47.5])
-        ax.set_frame_on(False)
+        # ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
 
     fig.subplots_adjust(
@@ -241,7 +241,7 @@ def _plot_4maps(
         gl.xlocator = mticker.FixedLocator([6, 8, 10])
         gl.ylocator = mticker.FixedLocator([46, 47.5])
         ax.set_title(titles[i])
-        ax.set_frame_on(False)
+        # ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
 
     fig.subplots_adjust(
@@ -305,7 +305,7 @@ def _plot_6maps(
         gl.xlocator = mticker.FixedLocator([6, 8, 10])
         gl.ylocator = mticker.FixedLocator([46, 47.5])
         ax.set_title(titles[i])
-        ax.set_frame_on(False)
+        # ax.set_frame_on(False)
         _write_label(ax, axis_labels[i])
 
     fig.subplots_adjust(
@@ -372,7 +372,7 @@ def _plot_9maps(
             vmax=vmax,
         )
         ax.add_feature(cfeature.BORDERS)
-        ax.set_frame_on(False)
+        # ax.set_frame_on(False)
         ax.gridlines(draw_labels=False, linestyle="-", color="gray", alpha=0.5)
         _write_label(ax, axis_labels[i])
 

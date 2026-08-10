@@ -7,8 +7,10 @@ figs*/
 gifs/
 src/s2s_downscaling.egg-info
 venv/
+phys-venv/
 __pycache__/
 .vscode/
 .zed
 *_backup.py
 *.out
+.venv
