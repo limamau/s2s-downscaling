@@ -391,6 +391,87 @@ def _plot_9maps(
     return fig, axs
 
 
+def _plot_12maps(
+    arrays,
+    titles,
+    extents,
+    projections,
+    cmap,
+    norm,
+    vmin,
+    vmax,
+    cbar_label,
+    figsize=(10, 14),
+    col_titles=("2018", "2021"),
+):
+    fig, axs = plt.subplots(
+        6,
+        2,
+        figsize=figsize,
+        dpi=300,
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+
+    axis_labels = (
+        (None, "lat"),
+        (None, None),
+        (None, "lat"),
+        (None, None),
+        (None, "lat"),
+        (None, None),
+        (None, "lat"),
+        (None, None),
+        (None, "lat"),
+        (None, None),
+        ("lon", "lat"),
+        ("lon", None),
+    )
+
+    for i, ax in enumerate(axs.flat):
+        img = ax.imshow(
+            arrays[i],
+            origin="lower",
+            extent=extents[i],
+            transform=projections[i],
+            cmap=cmap,
+            norm=norm,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax.add_feature(cfeature.BORDERS)
+        gl = ax.gridlines(draw_labels=False, linestyle="-", color="black", alpha=0.4)
+        gl.xlocator = mticker.FixedLocator([6, 8, 10])
+        gl.ylocator = mticker.FixedLocator([46, 47.5])
+        ax.set_title(titles[i])
+        _write_label(ax, axis_labels[i])
+
+    plt.suptitle(
+        "2018" + 60 * " " + "2021",
+        fontsize="large",
+        fontweight="bold",
+        y=0.98,
+        x=0.47,
+    )
+
+    fig.subplots_adjust(
+        left=0.1,
+        right=0.85,  # leave room for row labels on the right
+        bottom=0.0,
+        top=0.98,
+        wspace=0.15,
+        hspace=-0.2,
+    )
+    cax = fig.add_axes([0.9, 0.4, 0.02, 0.2])
+    fig.colorbar(
+        img,
+        cax=cax,
+        label=cbar_label,
+        orientation="vertical",
+    )
+
+    return fig, axs
+
+
 def plot_maps(
     arrays,
     titles,
@@ -474,6 +555,18 @@ def plot_maps(
     elif nplots == 9:
         fig, axes = _plot_9maps(
             arrays,
+            extents,
+            projections,
+            cmap,
+            norm,
+            vmin,
+            vmax,
+            cbar_label,
+        )
+    elif nplots == 12:
+        fig, axes = _plot_12maps(
+            arrays,
+            titles,
             extents,
             projections,
             cmap,
